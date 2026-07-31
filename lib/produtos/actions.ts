@@ -72,6 +72,29 @@ export async function renomearProdutoAction(id: string, novoNome: string): Promi
     await atualizarProduto(id, { nome });
     revalidatePath("/produtos");
     revalidatePath("/estoque");
+    revalidatePath("/relatorios");
+    return { sucesso: true };
+  } catch (e) {
+    return { sucesso: false, erroGeral: (e as Error).message };
+  }
+}
+
+/**
+ * Ajusta só o limiar de alerta de estoque baixo de um produto — não
+ * mexe na quantidade real. Usada no atalho "Editar" da tela de
+ * Estoque, para quem quiser um valor diferente do padrão (10) para um
+ * produto específico (ex: um item que vende muito rápido).
+ */
+export async function ajustarEstoqueMinimoAction(id: string, novoMinimo: number): Promise<ResultadoAcaoProduto> {
+  if (novoMinimo < 0 || !Number.isFinite(novoMinimo)) {
+    return { sucesso: false, erros: [{ campo: "estoque_minimo", mensagem: "Valor inválido." }] };
+  }
+
+  try {
+    await atualizarProduto(id, { estoque_minimo: novoMinimo });
+    revalidatePath("/estoque");
+    revalidatePath("/relatorios");
+    revalidatePath("/dashboard");
     return { sucesso: true };
   } catch (e) {
     return { sucesso: false, erroGeral: (e as Error).message };

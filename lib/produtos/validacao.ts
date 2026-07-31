@@ -3,6 +3,15 @@ export interface ErroValidacaoProduto {
   mensagem: string;
 }
 
+/**
+ * Valor padrão de estoque mínimo para todo produto novo — o cliente
+ * pediu para não perguntar isso no cadastro (causava confusão real:
+ * a pessoa lia "Estoque mínimo: 20" e achava que já tinha 20 unidades
+ * disponíveis, quando na verdade era só o limiar do alerta). Continua
+ * ajustável depois, por produto, na tela de Estoque.
+ */
+export const PADRAO_ESTOQUE_MINIMO = 10;
+
 export interface DadosProduto {
   nome: string;
   categoria_id: string;
@@ -12,11 +21,6 @@ export interface DadosProduto {
   codigo_barras?: string | null;
 }
 
-/**
- * Validações que não dependem de banco de dados nem de UI.
- * Roda igual no navegador (feedback rápido) e no servidor
- * (garantia real, já que o navegador pode ser burlado).
- */
 export function validarProduto(dados: DadosProduto): ErroValidacaoProduto[] {
   const erros: ErroValidacaoProduto[] = [];
 
@@ -47,10 +51,6 @@ export function validarProduto(dados: DadosProduto): ErroValidacaoProduto[] {
   return erros;
 }
 
-/**
- * Não é um erro bloqueante — é um alerta. A tela decide se pede
- * confirmação extra ("tem certeza?") quando isso for true.
- */
 export function precoVendaAbaixoDoCusto(dados: DadosProduto): boolean {
   return dados.preco_venda < dados.preco_custo;
 }

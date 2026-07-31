@@ -34,7 +34,7 @@ const GRUPOS: GrupoMenu[] = [
   {
     rotulo: "Operação diária",
     itens: [
-      { href: "/pdv", titulo: "PDV", icone: ShoppingCart },
+      { href: "/pdv", titulo: "Vender", icone: ShoppingCart },
       { href: "/estoque", titulo: "Estoque", icone: Boxes },
     ],
   },

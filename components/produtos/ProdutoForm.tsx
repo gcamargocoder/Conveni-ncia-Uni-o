@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { DadosProduto, precoVendaAbaixoDoCusto } from "@/lib/produtos/validacao";
+import { DadosProduto, precoVendaAbaixoDoCusto, PADRAO_ESTOQUE_MINIMO } from "@/lib/produtos/validacao";
 import { criarProdutoAction } from "@/lib/produtos/actions";
 import { criarCategoriaAction } from "@/lib/produtos/categorias-actions";
 import { Input } from "@/components/ui/Input";
@@ -21,7 +21,7 @@ const VAZIO: DadosProduto = {
   categoria_id: "",
   preco_venda: 0,
   preco_custo: 0,
-  estoque_minimo: 0,
+  estoque_minimo: PADRAO_ESTOQUE_MINIMO,
   codigo_barras: "",
 };
 
@@ -74,6 +74,7 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
     <div className="flex flex-col gap-4 max-w-md">
       <Input
         rotulo="Nome"
+        autoFocus
         value={dados.nome}
         erro={erros.nome}
         onChange={(e) => setDados({ ...dados, nome: e.target.value })}
@@ -151,13 +152,6 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
         value={dados.codigo_barras ?? ""}
         erro={erros.codigo_barras}
         onChange={(e) => setDados({ ...dados, codigo_barras: e.target.value })}
-      />
-
-      <Input
-        rotulo="Estoque mínimo"
-        type="number"
-        value={dados.estoque_minimo}
-        onChange={(e) => setDados({ ...dados, estoque_minimo: Number(e.target.value) })}
       />
 
       {erroGeral && <Alert variante="danger">{erroGeral}</Alert>}

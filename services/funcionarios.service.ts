@@ -3,16 +3,9 @@ import { unwrap } from "./supabase/query-helpers";
 import { verificarPin, gerarHashPin } from "@/lib/auth/pin";
 import { Funcionario } from "@/types/funcionario";
 
-/**
- * Nenhum outro arquivo consulta a tabela `funcionarios` diretamente.
- * Tudo passa por aqui — assim, quando entrarmos em Offline First,
- * só este arquivo precisa mudar.
- */
-
 export async function autenticarPorPin(pin: string): Promise<Funcionario | null> {
   const supabase = await createSupabaseServerClient();
 
-  // Busca só funcionários ativos — não vazamos existência de inativos.
   const resultado = await supabase
     .from("funcionarios")
     .select("*")
@@ -21,13 +14,6 @@ export async function autenticarPorPin(pin: string): Promise<Funcionario | null>
 
   if (resultado.error || !resultado.data) return null;
 
-  // O PIN não pode ser buscado direto no WHERE (está em hash), então
-  // comparamos um a um. Com poucas dezenas de funcionários por posto,
-  // isso é rápido o suficiente e evita expor timing de índice por PIN.
-  // NOTA DE AUDITORIA: isso escala por número de FUNCIONÁRIOS (dezenas),
-  // não por clientes do SaaS — cada posto só compara contra seus
-  // próprios funcionários. Se um único posto chegasse a centenas de
-  // funcionários simultâneos, valeria reconsiderar.
   for (const funcionario of resultado.data) {
     const confere = await verificarPin(pin, funcionario.pin_hash);
     if (confere) return funcionario as Funcionario;
@@ -63,4 +49,34 @@ export async function listarFuncionarios(): Promise<Funcionario[]> {
     .limit(500);
 
   return unwrap(resultado, "Erro ao listar funcionários");
+}
+
+export async function buscarFuncionarioPorId(id: string): Promise<Funcionario | null> {
+  const supabase = await createSupabaseServerClient();
+  const resultado = await supabase.from("funcionarios").select("*").eq("id", id).single();
+  if (resultado.error || !resultado.data) return null;
+  return resultado.data as Funcionario;
+}
+
+export async function atualizarFuncionario(
+  id: string,
+  dados: { nome?: string; cargo?: Funcionario["cargo"]; pin?: string }
+): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const atualizacoes: Record<string, unknown> = {};
+  if (dados.nome !== undefined) atualizacoes.nome = dados.nome;
+  if (dados.cargo !== undefined) atualizacoes.cargo = dados.cargo;
+  if (dados.pin !== undefined) atualizacoes.pin_hash = await gerarHashPin(dados.pin);
+
+  const resultado = await supabase.from("funcionarios").update(atualizacoes).eq("id", id);
+  unwrap(resultado, "Erro ao atualizar funcionário");
+}
+
+export async function excluirFuncionario(id: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const resultado = await supabase
+    .from("funcionarios")
+    .update({ deleted_at: new Date().toISOString(), ativo: false })
+    .eq("id", id);
+  unwrap(resultado, "Erro ao excluir funcionário");
 }

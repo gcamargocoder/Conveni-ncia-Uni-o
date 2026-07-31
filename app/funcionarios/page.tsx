@@ -1,6 +1,7 @@
 import { Users } from "lucide-react";
 import { listarFuncionarios } from "@/services/funcionarios.service";
 import { FuncionarioCadastroModal } from "@/components/funcionarios/FuncionarioCadastroModal";
+import { FuncionarioEditarModal } from "@/components/funcionarios/FuncionarioEditarModal";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
@@ -30,6 +31,11 @@ export default async function FuncionariosPage() {
               chave: "cargo",
               cabecalho: "Cargo",
               render: (f) => <Badge variante="brand">{f.cargo}</Badge>,
+            },
+            {
+              chave: "acoes",
+              cabecalho: "",
+              render: (f) => <FuncionarioEditarModal funcionario={f} />,
             },
           ]}
           dados={funcionarios}

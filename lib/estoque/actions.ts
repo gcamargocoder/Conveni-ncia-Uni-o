@@ -17,12 +17,6 @@ export interface ResultadoAcaoMovimentacao {
   erroGeral?: string;
 }
 
-/**
- * Toda movimentação manual exige o PIN de quem está autorizando —
- * mesmo que já exista um "operador de turno" definido, porque um
- * ajuste de estoque pode precisar da autorização do gerente, não
- * do caixa que está logado no momento.
- */
 export async function registrarMovimentacaoAction(
   dados: Omit<DadosMovimentacao, "funcionario_id">,
   pin: string
@@ -48,6 +42,8 @@ export async function registrarMovimentacaoAction(
   try {
     await registrarMovimentacao(dadosCompletos);
     revalidatePath("/estoque");
+    revalidatePath("/relatorios");
+    revalidatePath("/dashboard");
     return { sucesso: true };
   } catch (e) {
     return { sucesso: false, erroGeral: (e as Error).message };

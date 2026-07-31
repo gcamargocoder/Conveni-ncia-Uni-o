@@ -52,7 +52,9 @@ export function ListaEstoque({ estoque }: ListaEstoqueProps) {
           {
             chave: "acoes",
             cabecalho: "",
-            render: (e) => <ProdutoEstoqueModal produtoId={e.produto_id} produtoNome={e.nome} />,
+            render: (e) => (
+              <ProdutoEstoqueModal produtoId={e.produto_id} produtoNome={e.nome} estoqueMinimo={e.estoque_minimo} />
+            ),
           },
         ]}
         dados={filtrado}

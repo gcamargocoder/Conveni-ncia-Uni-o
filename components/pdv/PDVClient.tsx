@@ -115,7 +115,7 @@ export function PDVClient() {
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">PDV</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Vender</h1>
         <p className="text-slate-500 text-sm">Realizar venda</p>
       </header>
 
