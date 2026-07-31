@@ -92,13 +92,6 @@ export function PDVClient() {
     mostrar("info", "Venda cancelada.");
   }
 
-  /**
-   * Adiciona ao carrinho normalmente, sempre — o alerta é só
-   * informativo, nunca impede a venda (princípio nº1 do projeto).
-   * Verifica o estoque local depois de já ter adicionado o item, então
-   * mesmo se a consulta falhar por algum motivo, a venda já está
-   * garantida no carrinho.
-   */
   async function aoSelecionarProduto(produto: ProdutoParaVenda) {
     setCarrinho((c) => adicionarItem(c, produto));
 
@@ -163,7 +156,7 @@ export function PDVClient() {
                     <button
                       key={f.valor}
                       onClick={() => setFormaPagamento(f.valor)}
-                      className={`flex flex-col items-center gap-1 h-16 rounded-lg border text-sm font-medium transition-colors ${
+                      className={`w-full flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg border text-sm font-medium transition-colors ${
                         ativo
                           ? "bg-brand-700 text-white border-brand-700"
                           : "bg-white text-slate-600 border-slate-200 hover:border-brand-600"
@@ -212,7 +205,6 @@ export function PDVClient() {
       >
         Os itens do carrinho serão perdidos. Esta ação não pode ser desfeita.
       </Modal>
-
       <Modal
         aberto={!!produtoSemEstoque}
         titulo="Sem estoque"

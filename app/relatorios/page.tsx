@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { Receipt, ShoppingBag, Boxes } from "lucide-react";
 import { listarVendasPorPeriodo, resumirPorFormaPagamento } from "@/services/relatorios.service";
 import { listarEstoqueAtual } from "@/services/estoque.service";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Table } from "@/components/ui/Table";
 
 const PERIODOS: Record<string, number> = { hoje: 1, "7dias": 7, "30dias": 30 };
+const ROTULOS_PERIODO: Record<string, string> = { hoje: "Hoje", "7dias": "7 dias", "30dias": "30 dias" };
 
-// Next.js 15: searchParams também passou a ser uma Promise — mesmo
-// motivo do params em rotas dinâmicas (ver app/pdv/cupom/[vendaId]/page.tsx).
 export default async function RelatoriosPage({
   searchParams,
 }: {
@@ -28,100 +31,116 @@ export default async function RelatoriosPage({
   const totalGeral = resumo.reduce((s, r) => s + r.total, 0);
 
   return (
-    <main className="max-w-4xl mx-auto p-6 flex flex-col gap-8">
-      <h1 className="text-2xl font-bold text-slate-900">Relatórios</h1>
+    <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Relatórios</h1>
+        <p className="text-slate-500 text-sm">Vendas e estoque por período</p>
+      </header>
 
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-slate-700">Vendas</h2>
-          <div className="flex gap-2">
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-brand-700" />
+            <h2 className="text-sm font-semibold text-slate-700">Faturamento por forma de pagamento</h2>
+          </div>
+          <div className="flex gap-1.5">
             {Object.keys(PERIODOS).map((p) => (
               <Link
                 key={p}
                 href={`/relatorios?periodo=${p}`}
-                className={`px-3 py-1 rounded-lg text-sm ${
-                  p === periodo ? "bg-slate-900 text-white" : "bg-slate-100"
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  p === periodo ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                {p}
+                {ROTULOS_PERIODO[p]}
               </Link>
             ))}
           </div>
         </div>
 
-        <p className="text-3xl font-bold mb-4">R$ {totalGeral.toFixed(2)}</p>
+        <p className="text-3xl font-bold text-slate-900 tabular-nums mb-4">R$ {totalGeral.toFixed(2)}</p>
 
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b text-sm text-slate-500">
-              <th className="py-2">Forma de pagamento</th>
-              <th className="py-2">Qtd. vendas</th>
-              <th className="py-2">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {resumo.map((r) => (
-              <tr key={r.forma_pagamento} className="border-b">
-                <td className="py-2 capitalize">{r.forma_pagamento}</td>
-                <td className="py-2">{r.quantidade}</td>
-                <td className="py-2">R$ {r.total.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+        <Table
+          colunas={[
+            { chave: "forma_pagamento", cabecalho: "Forma de pagamento", className: "capitalize" },
+            { chave: "quantidade", cabecalho: "Qtd. vendas" },
+            { chave: "total", cabecalho: "Total", render: (r) => `R$ ${r.total.toFixed(2)}` },
+          ]}
+          dados={resumo}
+          chaveLinha={(r) => r.forma_pagamento}
+          vazioIcone={Receipt}
+          vazioTitulo="Nenhuma venda no período"
+        />
+      </Card>
 
-      <section>
-        <h2 className="text-lg font-semibold text-slate-700 mb-3">Vendas do período</h2>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b text-sm text-slate-500">
-              <th className="py-2">Data</th>
-              <th className="py-2">Total</th>
-              <th className="py-2">Pagamento</th>
-              <th className="py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {vendas.map((v) => (
-              <tr key={v.id} className="border-b">
-                <td className="py-2">{new Date(v.created_at).toLocaleString("pt-BR")}</td>
-                <td className="py-2">R$ {v.total.toFixed(2)}</td>
-                <td className="py-2 capitalize">
-                  {v.forma_pagamento} {v.cancelada && <span className="text-red-600">(cancelada)</span>}
-                </td>
-                <td className="py-2">
-                  <Link href={`/pdv/cupom/${v.id}`} className="text-slate-500 underline text-sm">
-                    reimprimir
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <Card semPadding>
+        <div className="flex items-center gap-2 px-5 pt-5 mb-1">
+          <ShoppingBag className="w-4 h-4 text-brand-700" />
+          <h2 className="text-sm font-semibold text-slate-700">Vendas do período</h2>
+        </div>
+        <Table
+          colunas={[
+            { chave: "created_at", cabecalho: "Data", render: (v) => new Date(v.created_at).toLocaleString("pt-BR") },
+            { chave: "total", cabecalho: "Total", render: (v) => `R$ ${v.total.toFixed(2)}` },
+            {
+              chave: "forma_pagamento",
+              cabecalho: "Pagamento",
+              render: (v) => (
+                <span className="flex items-center gap-2 capitalize">
+                  {v.forma_pagamento}
+                  {v.cancelada && <Badge variante="danger">cancelada</Badge>}
+                </span>
+              ),
+            },
+            {
+              chave: "acoes",
+              cabecalho: "",
+              render: (v) => (
+                <Link href={`/pdv/cupom/${v.id}`} className="text-brand-700 hover:underline text-sm font-medium">
+                  Reimprimir
+                </Link>
+              ),
+            },
+          ]}
+          dados={vendas}
+          chaveLinha={(v) => v.id}
+          vazioIcone={ShoppingBag}
+          vazioTitulo="Nenhuma venda no período"
+        />
+      </Card>
 
-      <section>
-        <h2 className="text-lg font-semibold text-slate-700 mb-3">Estoque completo</h2>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b text-sm text-slate-500">
-              <th className="py-2">Produto</th>
-              <th className="py-2">Quantidade</th>
-              <th className="py-2">Mínimo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {estoque.map((e) => (
-              <tr key={e.produto_id} className="border-b">
-                <td className="py-2">{e.nome}</td>
-                <td className="py-2">{e.quantidade_atual}</td>
-                <td className="py-2">{e.estoque_minimo}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <Card semPadding>
+        <div className="flex items-center gap-2 px-5 pt-5 mb-1">
+          <Boxes className="w-4 h-4 text-brand-700" />
+          <h2 className="text-sm font-semibold text-slate-700">Estoque completo</h2>
+        </div>
+        <Table
+          colunas={[
+            { chave: "nome", cabecalho: "Produto" },
+            {
+              chave: "quantidade_atual",
+              cabecalho: "Quantidade",
+              render: (e) => (
+                <span className="text-base font-semibold text-slate-900 tabular-nums">{e.quantidade_atual}</span>
+              ),
+            },
+            {
+              chave: "situacao",
+              cabecalho: "Situação",
+              render: (e) =>
+                e.quantidade_atual < e.estoque_minimo ? (
+                  <Badge variante="warning">Estoque baixo (mín: {e.estoque_minimo})</Badge>
+                ) : (
+                  <span className="text-slate-400 text-xs">OK</span>
+                ),
+            },
+          ]}
+          dados={estoque}
+          chaveLinha={(e) => e.produto_id}
+          vazioIcone={Boxes}
+          vazioTitulo="Nenhum produto cadastrado ainda"
+        />
+      </Card>
     </main>
   );
 }

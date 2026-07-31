@@ -11,12 +11,6 @@ export interface ModalProps {
   rodape?: ReactNode;
 }
 
-/**
- * Substitui confirm() nativo do navegador (usado hoje em
- * ProdutoForm e PDVClient) — sem identidade visual, bloqueia a thread
- * e não pode ser estilizado. Controlado (aberto/onFechar), fecha com
- * Esc ou clique fora.
- */
 export function Modal({ aberto, titulo, onFechar, children, rodape }: ModalProps) {
   const referencia = useRef<HTMLDivElement>(null);
 
@@ -39,9 +33,9 @@ export function Modal({ aberto, titulo, onFechar, children, rodape }: ModalProps
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-titulo"
-        className="relative w-full max-w-md rounded-xl bg-white shadow-elevated animate-slide-up"
+        className="relative w-full max-w-md max-h-[90vh] flex flex-col rounded-xl bg-white shadow-elevated animate-slide-up"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
           <h2 id="modal-titulo" className="font-semibold text-slate-900">
             {titulo}
           </h2>
@@ -49,8 +43,8 @@ export function Modal({ aberto, titulo, onFechar, children, rodape }: ModalProps
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="px-5 py-4 text-sm text-slate-600">{children}</div>
-        {rodape && <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-200">{rodape}</div>}
+        <div className="px-5 py-4 text-sm text-slate-600 overflow-y-auto">{children}</div>
+        {rodape && <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-200 shrink-0">{rodape}</div>}
       </div>
     </div>
   );

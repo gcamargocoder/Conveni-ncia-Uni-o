@@ -24,10 +24,12 @@ const CLASSES_CAMPO = "h-11 px-3 rounded-lg text-base bg-white border border-sla
 
 interface MovimentacaoFormProps {
   produtos: { id: string; nome: string }[];
+  produtoFixo?: { id: string; nome: string };
+  onSucesso?: () => void;
 }
 
-export function MovimentacaoForm({ produtos }: MovimentacaoFormProps) {
-  const [produtoId, setProdutoId] = useState("");
+export function MovimentacaoForm({ produtos, produtoFixo, onSucesso }: MovimentacaoFormProps) {
+  const [produtoId, setProdutoId] = useState(produtoFixo?.id ?? "");
   const [tipo, setTipo] = useState<TipoMovimentacao>("entrada");
   const [quantidade, setQuantidade] = useState(0);
   const [observacao, setObservacao] = useState("");
@@ -44,24 +46,32 @@ export function MovimentacaoForm({ produtos }: MovimentacaoFormProps) {
       throw new Error(resultado.erroGeral ?? resultado.erros?.[0]?.mensagem ?? "Erro ao registrar movimentação.");
     }
 
-    setProdutoId("");
+    if (!produtoFixo) setProdutoId("");
     setQuantidade(0);
     setObservacao("");
+    onSucesso?.();
   }
 
   return (
     <div className="flex flex-col gap-4 max-w-md">
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Produto</label>
-        <select className={CLASSES_CAMPO} value={produtoId} onChange={(e) => setProdutoId(e.target.value)}>
-          <option value="">Selecione...</option>
-          {produtos.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nome}
-            </option>
-          ))}
-        </select>
-      </div>
+      {produtoFixo ? (
+        <div>
+          <p className="text-sm font-medium text-slate-700 mb-1">Produto</p>
+          <p className="text-base text-slate-900 font-semibold">{produtoFixo.nome}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-slate-700">Produto</label>
+          <select className={CLASSES_CAMPO} value={produtoId} onChange={(e) => setProdutoId(e.target.value)}>
+            <option value="">Selecione...</option>
+            {produtos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-700">Tipo de movimentação</label>

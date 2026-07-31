@@ -37,6 +37,7 @@ describe("registrarLog / listarLogs", () => {
 
   it("lista do mais recente para o mais antigo", async () => {
     await registrarLog("DATABASE", "info", "primeiro");
+    await new Promise((resolve) => setTimeout(resolve, 5)); // garante timestamp diferente do próximo log
     await registrarLog("DATABASE", "info", "segundo");
 
     const logs = await listarLogs();
