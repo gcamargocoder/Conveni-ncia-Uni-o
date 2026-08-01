@@ -2,6 +2,8 @@ import { listarEstoqueAtual } from "@/services/estoque.service";
 import { ListaEstoque } from "@/components/estoque/ListaEstoque";
 import { Card } from "@/components/ui/Card";
 
+export const dynamic = "force-dynamic";
+
 export default async function EstoquePage() {
   const estoque = await listarEstoqueAtual();
 

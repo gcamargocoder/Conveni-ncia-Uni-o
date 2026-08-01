@@ -4,6 +4,8 @@ import { FornecedorCadastroModal } from "@/components/fornecedores/FornecedorCad
 import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 
+export const dynamic = "force-dynamic";
+
 export default async function FornecedoresPage() {
   const fornecedores = await listarFornecedores();
 

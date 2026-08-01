@@ -31,6 +31,13 @@ function formatarMoeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// Força renderização dinâmica — sem isso, o Next.js estava gerando
+// esta página UMA VEZ no momento do build (dado congelado daquele
+// instante, igual para todo visitante) em vez de buscar o dado real a
+// cada acesso. Descoberto ao investigar um erro de build; era um bug
+// real, silencioso, presente desde o início do projeto.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const [resumo, historico] = await Promise.all([buscarResumoDashboard(), listarHistorico(7)]);
 

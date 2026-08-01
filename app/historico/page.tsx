@@ -3,6 +3,8 @@ import { listarHistorico } from "@/services/historico.service";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 
+export const dynamic = "force-dynamic";
+
 export default async function HistoricoPage() {
   const eventos = await listarHistorico(7);
 

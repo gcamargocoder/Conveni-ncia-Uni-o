@@ -5,6 +5,8 @@ import { ProdutoCadastroModal } from "@/components/produtos/ProdutoCadastroModal
 import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProdutosPage() {
   const supabase = await createSupabaseServerClient();
   const [produtos, { data: categorias }] = await Promise.all([

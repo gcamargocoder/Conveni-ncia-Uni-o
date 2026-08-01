@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
 
+export const dynamic = "force-dynamic";
+
 export default async function FuncionariosPage() {
   const funcionarios = await listarFuncionarios();
 
