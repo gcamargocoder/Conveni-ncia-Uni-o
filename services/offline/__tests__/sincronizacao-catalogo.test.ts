@@ -18,6 +18,7 @@ function alteracoes(over: Partial<AlteracoesCatalogo>): AlteracoesCatalogo {
     produtos: [],
     categorias: [],
     estoque: [],
+    funcionarios: [],
     timestampServidor: new Date().toISOString(),
     ...over,
   };

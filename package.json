@@ -11,13 +11,15 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "bcryptjs": "^2.4.3",
     "dexie": "^4.0.8",
     "dexie-react-hooks": "^1.1.7",
+    "lucide-react": "^1.0.0",
     "next": "15.5.9",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "lucide-react": "^1.0.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

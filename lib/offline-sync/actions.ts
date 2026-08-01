@@ -3,18 +3,13 @@
 import { listarProdutosAlteradosDesde } from "@/services/produtos.service";
 import { listarCategoriasAlteradasDesde } from "@/services/categorias.service";
 import { listarEstoqueAlteradoDesde } from "@/services/estoque.service";
+import { listarFuncionariosAlteradosDesde } from "@/services/funcionarios.service";
 
 export interface AlteracoesCatalogo {
   produtos: Awaited<ReturnType<typeof listarProdutosAlteradosDesde>>;
   categorias: Awaited<ReturnType<typeof listarCategoriasAlteradasDesde>>;
   estoque: Awaited<ReturnType<typeof listarEstoqueAlteradoDesde>>;
-  /**
-   * Capturado ANTES de rodar as três buscas — se usássemos o horário de
-   * depois, uma alteração feita durante a própria consulta poderia ficar
-   * fora da janela e nunca ser sincronizada. Usar o horário de antes
-   * significa, na pior das hipóteses, buscar o mesmo registro duas
-   * vezes (inofensivo — upsert por PK), nunca perder um.
-   */
+  funcionarios: Awaited<ReturnType<typeof listarFuncionariosAlteradosDesde>>;
   timestampServidor: string;
 }
 
@@ -24,11 +19,12 @@ export async function buscarAlteracoesCatalogoAction(
   const inicio = new Date();
   const desde = desdeIso ? new Date(desdeIso) : null;
 
-  const [produtos, categorias, estoque] = await Promise.all([
+  const [produtos, categorias, estoque, funcionarios] = await Promise.all([
     listarProdutosAlteradosDesde(desde),
     listarCategoriasAlteradasDesde(desde),
     listarEstoqueAlteradoDesde(desde),
+    listarFuncionariosAlteradosDesde(desde),
   ]);
 
-  return { produtos, categorias, estoque, timestampServidor: inicio.toISOString() };
+  return { produtos, categorias, estoque, funcionarios, timestampServidor: inicio.toISOString() };
 }

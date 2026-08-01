@@ -39,6 +39,18 @@ export async function criarFuncionario(input: {
   return unwrap(resultado, "Erro ao criar funcionário");
 }
 
+export async function listarFuncionariosAlteradosDesde(desde: Date | null): Promise<Funcionario[]> {
+  const supabase = await createSupabaseServerClient();
+  let query = supabase.from("funcionarios").select("*").order("updated_at");
+
+  if (desde) {
+    query = query.gte("updated_at", desde.toISOString());
+  }
+
+  const resultado = await query.limit(500);
+  return unwrap(resultado, "Erro ao sincronizar funcionários");
+}
+
 export async function listarFuncionarios(): Promise<Funcionario[]> {
   const supabase = await createSupabaseServerClient();
   const resultado = await supabase

@@ -14,11 +14,10 @@ export default async function ProdutosPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Produtos</h1>
-          <p className="text-slate-500 text-sm">Produtos e categorias</p>
-        </div>
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">        <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Produtos</h1>
+        <p className="text-slate-500 text-sm">Produtos e categorias</p>
+      </div>
         <ProdutoCadastroModal categorias={categorias ?? []} />
       </header>
 

@@ -11,11 +11,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ItemCarrinho, adicionarItem, removerItem, alterarQuantidade, calcularTotal } from "@/lib/vendas/carrinho";
-import { validarPinAction } from "@/lib/auth/actions";
 import { registrarVendaLocal } from "@/services/offline/vendas-local.service";
 import { processarFilaSincronizacao } from "@/services/offline/worker-sincronizacao.service";
 import { salvarCarrinhoLocal, carregarCarrinhoLocal, limparCarrinhoLocal } from "@/services/offline/carrinho-local.service";
 import { obterEstoqueLocalPorProduto } from "@/services/offline/estoque-local.service";
+import { validarPinLocalmente } from "@/services/offline/pin-local.service";
 import { FormaPagamento, ProdutoParaVenda } from "@/types/venda";
 import { VendaCompleta } from "@/services/vendas.service";
 
@@ -51,7 +51,10 @@ export function PDVClient() {
   }, [carrinho]);
 
   async function finalizarComPin(pin: string) {
-    const auth = await validarPinAction(pin);
+    // Validação 100% local — funciona offline. Depende do catálogo
+    // (que inclui funcionários) já ter sido sincronizado ao menos uma
+    // vez com internet disponível.
+    const auth = await validarPinLocalmente(pin);
     if (!auth.sucesso || !auth.funcionario) {
       throw new Error(auth.erro ?? "PIN inválido.");
     }
@@ -115,7 +118,7 @@ export function PDVClient() {
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Vender</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Venda</h1>
         <p className="text-slate-500 text-sm">Realizar venda</p>
       </header>
 

@@ -1,4 +1,4 @@
-import { getOfflineDB, ProdutoLocal, CategoriaLocal, EstoqueLocal } from "./db";
+import { getOfflineDB, ProdutoLocal, CategoriaLocal, EstoqueLocal, FuncionarioLocal } from "./db";
 import { obterConfiguracao, definirConfiguracao } from "./configuracao-local.service";
 import { registrarEventoSincronizacao } from "./auditoria-sincronizacao.service";
 import { buscarAlteracoesCatalogoAction, AlteracoesCatalogo } from "@/lib/offline-sync/actions";
@@ -10,22 +10,9 @@ export interface ContagemSincronizacao {
   produtos: number;
   categorias: number;
   estoque: number;
+  funcionarios: number;
 }
 
-/**
- * Aplica alterações já buscadas do servidor ao banco local. Separada
- * de sincronizarCatalogo() de propósito: esta função não faz nenhuma
- * chamada de rede, então é totalmente testável (dado um payload
- * fabricado, sem precisar mockar Server Action nem Supabase) — os
- * testes desta etapa cobrem justamente esta função.
- *
- * Um produto que veio desativado/excluído do servidor (ativo=false ou
- * deleted_at preenchido) é gravado localmente com ativo=false — nunca
- * removido fisicamente do IndexedDB. Isso é suficiente: toda leitura
- * local (buscarProdutosLocalPorTermo, listarProdutosLocal) já filtra
- * por ativo, então o produto simplesmente para de aparecer nas buscas,
- * sem precisar de nenhum caminho de código especial para "remoção".
- */
 export async function aplicarAlteracoesCatalogoLocal(
   alteracoes: AlteracoesCatalogo
 ): Promise<ContagemSincronizacao> {
@@ -56,15 +43,26 @@ export async function aplicarAlteracoesCatalogoLocal(
     updated_at: agora,
   }));
 
+  const funcionariosLocal: FuncionarioLocal[] = alteracoes.funcionarios.map((f) => ({
+    id: f.id,
+    nome: f.nome,
+    cargo: f.cargo,
+    pin_hash: f.pin_hash,
+    ativo: f.ativo && !f.deleted_at,
+    updated_at: f.updated_at,
+  }));
+
   await db.transaction(
     "rw",
     db.produtos_local,
     db.categorias_local,
     db.estoque_local,
+    db.funcionarios_local,
     async () => {
       if (produtosLocal.length) await db.produtos_local.bulkPut(produtosLocal);
       if (categoriasLocal.length) await db.categorias_local.bulkPut(categoriasLocal);
       if (estoqueLocal.length) await db.estoque_local.bulkPut(estoqueLocal);
+      if (funcionariosLocal.length) await db.funcionarios_local.bulkPut(funcionariosLocal);
     }
   );
 
@@ -72,6 +70,7 @@ export async function aplicarAlteracoesCatalogoLocal(
     produtos: produtosLocal.length,
     categorias: categoriasLocal.length,
     estoque: estoqueLocal.length,
+    funcionarios: funcionariosLocal.length,
   };
 }
 
@@ -81,12 +80,6 @@ export interface ResultadoSincronizacaoCatalogo {
   erro?: string;
 }
 
-/**
- * Ponto de entrada real, chamado pela UI. Busca no servidor (rede) e
- * delega a aplicação local para aplicarAlteracoesCatalogoLocal(). O
- * carimbo só avança DEPOIS da gravação local ter sucesso — se cair no
- * meio, a próxima sincronização repete a mesma janela (idempotente).
- */
 export async function sincronizarCatalogo(): Promise<ResultadoSincronizacaoCatalogo> {
   const inicioMs = Date.now();
   await registrarEventoSincronizacao("inicio");
@@ -99,11 +92,11 @@ export async function sincronizarCatalogo(): Promise<ResultadoSincronizacaoCatal
     await definirConfiguracao(CHAVE_CARIMBO, alteracoes.timestampServidor);
     await definirConfiguracao(
       CHAVE_ULTIMA_QTD,
-      String(contagem.produtos + contagem.categorias + contagem.estoque)
+      String(contagem.produtos + contagem.categorias + contagem.estoque + contagem.funcionarios)
     );
 
     await registrarEventoSincronizacao("fim", {
-      registros_atualizados: contagem.produtos + contagem.categorias + contagem.estoque,
+      registros_atualizados: contagem.produtos + contagem.categorias + contagem.estoque + contagem.funcionarios,
       duracao_ms: Date.now() - inicioMs,
     });
 

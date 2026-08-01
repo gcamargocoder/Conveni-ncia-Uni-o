@@ -10,10 +10,12 @@
   body {
     @apply antialiased;
     text-rendering: optimizeLegibility;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
-  /* Foco consistente em todo o app — nunca o outline azul genérico do
-     navegador, sempre a cor de marca, sempre visível (acessibilidade). */
   :focus-visible {
     @apply outline-none ring-2 ring-brand-600 ring-offset-2 ring-offset-white;
   }

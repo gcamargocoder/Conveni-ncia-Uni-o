@@ -1,27 +1,28 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Search, Camera } from "lucide-react";
 import { ProdutoParaVenda } from "@/types/venda";
 import { buscarProdutosLocalPorTermo, contarProdutosLocal } from "@/services/offline/produtos-local.service";
 import { Alert } from "@/components/ui/Alert";
 
-const DEBOUNCE_MS = 100; // local é rápido — o debounce aqui é só suavidade de UX, não necessidade de performance
+const LeitorCameraModal = dynamic(
+  () => import("@/components/ui/LeitorCameraModal").then((m) => m.LeitorCameraModal),
+  { ssr: false }
+);
+
+const DEBOUNCE_MS = 100;
 
 interface ProdutoBuscaProps {
   onSelecionar: (produto: ProdutoParaVenda) => void;
 }
 
-/**
- * Busca 100% local (IndexedDB) — regra da Fase 2 do Offline First.
- * O PDV nunca consulta o Supabase diretamente para pesquisar produtos,
- * mesmo com internet disponível. A internet só mantém o banco local
- * atualizado (ver services/offline/sincronizacao-catalogo.service.ts).
- */
 export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
   const [busca, setBusca] = useState("");
   const [resultados, setResultados] = useState<ProdutoParaVenda[]>([]);
   const [catalogoVazio, setCatalogoVazio] = useState(false);
+  const [leitorCameraAberto, setLeitorCameraAberto] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -59,6 +60,36 @@ export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
     setResultados([]);
   }
 
+  async function buscarESelecionarSeUnico(termo: string) {
+    const termoLimpo = termo.trim();
+    if (!termoLimpo) return;
+
+    const encontrados = await buscarProdutosLocalPorTermo(termoLimpo);
+    const mapeados = encontrados.map((p) => ({
+      produto_id: p.id,
+      nome: p.nome,
+      preco_unitario: p.preco_venda,
+      codigo_barras: p.codigo_barras,
+    }));
+
+    if (mapeados.length === 1) {
+      selecionar(mapeados[0]);
+    } else {
+      setResultados(mapeados);
+    }
+  }
+
+  async function aoApertarEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    await buscarESelecionarSeUnico(busca);
+  }
+
+  function aoLerCodigoPelaCamera(codigo: string) {
+    setLeitorCameraAberto(false);
+    buscarESelecionarSeUnico(codigo);
+  }
+
   return (
     <div className="relative">
       <div className="relative">
@@ -66,15 +97,19 @@ export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
         <input
           autoFocus
           placeholder="Buscar produto ou passar código de barras..."
-          className="w-full h-14 pl-12 pr-4 text-lg rounded-xl border border-slate-300 focus:border-brand-600"
+          className="w-full h-14 pl-12 pr-14 text-lg rounded-xl border border-slate-300 focus:border-brand-600"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && resultados.length === 1) {
-              selecionar(resultados[0]);
-            }
-          }}
+          onKeyDown={aoApertarEnter}
         />
+        <button
+          type="button"
+          onClick={() => setLeitorCameraAberto(true)}
+          aria-label="Escanear código de barras com a câmera"
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+        >
+          <Camera className="w-5 h-5 text-slate-600" />
+        </button>
       </div>
 
       {catalogoVazio && (
@@ -97,6 +132,14 @@ export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
             </li>
           ))}
         </ul>
+      )}
+
+      {leitorCameraAberto && (
+        <LeitorCameraModal
+          aberto={leitorCameraAberto}
+          onFechar={() => setLeitorCameraAberto(false)}
+          onCodigoLido={aoLerCodigoPelaCamera}
+        />
       )}
     </div>
   );

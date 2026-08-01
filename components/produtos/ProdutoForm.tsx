@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Plus, Camera } from "lucide-react";
 import { DadosProduto, precoVendaAbaixoDoCusto, PADRAO_ESTOQUE_MINIMO } from "@/lib/produtos/validacao";
 import { criarProdutoAction } from "@/lib/produtos/actions";
 import { criarCategoriaAction } from "@/lib/produtos/categorias-actions";
@@ -10,6 +11,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Alert } from "@/components/ui/Alert";
 import { useToast } from "@/components/ui/ToastProvider";
+
+const LeitorCameraModal = dynamic(
+  () => import("@/components/ui/LeitorCameraModal").then((m) => m.LeitorCameraModal),
+  { ssr: false }
+);
 
 interface ProdutoFormProps {
   categorias: { id: string; nome: string }[];
@@ -36,6 +42,7 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [pedindoConfirmacaoMargem, setPedindoConfirmacaoMargem] = useState(false);
+  const [leitorCameraAberto, setLeitorCameraAberto] = useState(false);
   const { mostrar } = useToast();
 
   const alertaMargem = precoVendaAbaixoDoCusto(dados);
@@ -147,14 +154,38 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
 
       {alertaMargem && <Alert variante="warning">Preço de venda está abaixo do custo.</Alert>}
 
-      <Input
-        rotulo="Código de barras (opcional)"
-        value={dados.codigo_barras ?? ""}
-        erro={erros.codigo_barras}
-        onChange={(e) => setDados({ ...dados, codigo_barras: e.target.value })}
-      />
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-slate-700">Código de barras (opcional)</label>
+        <div className="flex gap-2">
+          <Input
+            value={dados.codigo_barras ?? ""}
+            erro={erros.codigo_barras}
+            onChange={(e) => setDados({ ...dados, codigo_barras: e.target.value })}
+            className="flex-1"
+          />
+          <Button
+            type="button"
+            variante="secondary"
+            onClick={() => setLeitorCameraAberto(true)}
+            aria-label="Escanear código de barras com a câmera"
+          >
+            <Camera className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
 
       {erroGeral && <Alert variante="danger">{erroGeral}</Alert>}
+
+      {leitorCameraAberto && (
+        <LeitorCameraModal
+          aberto={leitorCameraAberto}
+          onFechar={() => setLeitorCameraAberto(false)}
+          onCodigoLido={(codigo) => {
+            setDados((d) => ({ ...d, codigo_barras: codigo }));
+            setLeitorCameraAberto(false);
+          }}
+        />
+      )}
 
       <Button tamanho="lg" carregando={salvando} onClick={aoClicarSalvar}>
         Salvar produto

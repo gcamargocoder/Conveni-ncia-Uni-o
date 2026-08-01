@@ -38,19 +38,17 @@ export default async function RelatoriosPage({
       </header>
 
       <Card>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-brand-700" />
-            <h2 className="text-sm font-semibold text-slate-700">Faturamento por forma de pagamento</h2>
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">          <div className="flex items-center gap-2">
+          <Receipt className="w-4 h-4 text-brand-700" />
+          <h2 className="text-sm font-semibold text-slate-700">Faturamento por forma de pagamento</h2>
+        </div>
           <div className="flex gap-1.5">
             {Object.keys(PERIODOS).map((p) => (
               <Link
                 key={p}
                 href={`/relatorios?periodo=${p}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  p === periodo ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${p === periodo ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
               >
                 {ROTULOS_PERIODO[p]}
               </Link>
