@@ -3,7 +3,9 @@ import { BaseEntity } from "./base";
 export interface Produto extends BaseEntity {
   nome: string;
   categoria_id: string;
+  fornecedor_id: string | null;
   codigo_barras: string | null;
+  descricao: string | null;
   preco_venda: number;
   preco_custo: number;
   estoque_minimo: number;

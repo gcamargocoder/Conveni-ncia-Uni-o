@@ -111,7 +111,11 @@ export type TipoEventoAuditoriaLocal =
   | "sync_fila_inicio"
   | "sync_fila_fim"
   | "sync_item_sucesso"
-  | "sync_item_erro";
+  | "sync_item_erro"
+  // Etapa 8.2 — validação de estoque no PDV
+  | "estoque_insuficiente_tentativa"
+  | "estoque_ajuste_automatico"
+  | "venda_bloqueada_estoque";
 
 export interface EventoAuditoriaLocal {
   id: string;

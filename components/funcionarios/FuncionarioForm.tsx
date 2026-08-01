@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 
 const CARGOS: { valor: Cargo; rotulo: string }[] = [
   { valor: "caixa", rotulo: "Caixa" },
+  { valor: "frentista", rotulo: "Frentista" },
   { valor: "estoquista", rotulo: "Estoquista" },
   { valor: "gerente", rotulo: "Gerente" },
   { valor: "proprietario", rotulo: "Proprietário" },

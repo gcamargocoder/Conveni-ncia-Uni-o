@@ -1,7 +1,9 @@
 import { Truck } from "lucide-react";
 import { listarFornecedores } from "@/services/fornecedores.service";
 import { FornecedorCadastroModal } from "@/components/fornecedores/FornecedorCadastroModal";
+import { FornecedorEditarModal } from "@/components/fornecedores/FornecedorEditarModal";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +13,11 @@ export default async function FornecedoresPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-6">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">        <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Fornecedores</h1>
-        <p className="text-slate-500 text-sm">Cadastro de fornecedores</p>
-      </div>
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Fornecedores</h1>
+          <p className="text-slate-500 text-sm">Cadastro de fornecedores</p>
+        </div>
         <FornecedorCadastroModal />
       </header>
 
@@ -27,6 +30,21 @@ export default async function FornecedoresPage() {
           colunas={[
             { chave: "nome", cabecalho: "Nome" },
             { chave: "telefone", cabecalho: "Telefone", render: (f) => f.telefone ?? "—" },
+            {
+              chave: "situacao",
+              cabecalho: "Situação",
+              render: (f) =>
+                f.ativo ? (
+                  <span className="text-slate-400 text-xs">Ativo</span>
+                ) : (
+                  <Badge variante="neutral">Inativo</Badge>
+                ),
+            },
+            {
+              chave: "acoes",
+              cabecalho: "",
+              render: (f) => <FornecedorEditarModal fornecedor={f} />,
+            },
           ]}
           dados={fornecedores}
           chaveLinha={(f) => f.id}

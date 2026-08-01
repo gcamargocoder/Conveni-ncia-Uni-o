@@ -1,5 +1,11 @@
 import { Cargo } from "@/types/funcionario";
 
+/**
+ * Cada operação sensível do sistema é uma "permissão" aqui.
+ * As telas nunca decidem sozinhas quem pode fazer o quê — elas
+ * perguntam para esta regra. Isso evita que a mesma checagem seja
+ * copiada e colada (e esquecida) em vários componentes.
+ */
 export type Permissao =
   | "pdv.vender"
   | "pdv.cancelar_venda"
@@ -29,6 +35,12 @@ const PERMISSOES_POR_CARGO: Record<Cargo, Permissao[]> = {
   ],
   caixa: ["pdv.vender"],
   estoquista: ["estoque.entrada", "estoque.ajuste"],
+  // Mesmas permissões de "caixa" — a diferença entre os dois cargos é
+  // só o rótulo (frentista de posto vs. caixa de loja). Nenhuma das
+  // permissões extras que "consultar produtos/preços/estoque" pediria
+  // é necessária hoje: essas telas já não têm bloqueio de visualização,
+  // só as ações de criar/editar/excluir são controladas por permissão.
+  frentista: ["pdv.vender"],
 };
 
 export function possuiPermissao(cargo: Cargo, permissao: Permissao): boolean {
@@ -45,6 +57,8 @@ export function possuiPermissao(cargo: Cargo, permissao: Permissao): boolean {
  */
 export function podeGerenciarFuncionario(cargoAutorizador: Cargo, cargoAlvo: Cargo): boolean {
   if (cargoAutorizador === "proprietario") return true;
-  if (cargoAutorizador === "gerente") return cargoAlvo === "caixa" || cargoAlvo === "estoquista";
+  if (cargoAutorizador === "gerente") {
+    return cargoAlvo === "caixa" || cargoAlvo === "estoquista" || cargoAlvo === "frentista";
+  }
   return false;
 }

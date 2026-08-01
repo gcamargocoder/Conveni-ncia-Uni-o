@@ -36,8 +36,6 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
   const vendaId = gerarUuid();
   const dispositivo = await obterOuCriarIdentificadorDispositivo();
   const papel = await obterPapelDispositivo();
-  // Sem autorização de dispositivo implementada ainda (fase futura),
-  // assume Terminal Principal por padrão.
   const terminal = papel?.tipo ?? "principal";
 
   await registrarEventoAuditoriaLocal("venda_iniciada", {
@@ -74,6 +72,28 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
   try {
     const db = getOfflineDB();
 
+    // Dupla validação (Etapa 8.2) — a tela já valida antes de deixar o
+    // operador chegar até aqui, mas essa é a barreira de verdade: se
+    // por qualquer motivo (estado desatualizado, corrida entre duas
+    // abas) uma quantidade acima do disponível chegar até aqui, a
+    // venda é bloqueada agora, antes de gravar qualquer coisa.
+    for (const item of dados.itens) {
+      const estoqueAtual = await db.estoque_local.get(item.produto_id);
+      const disponivel = estoqueAtual?.quantidade_atual ?? 0;
+      if (item.quantidade > disponivel) {
+        await registrarEventoAuditoriaLocal("venda_bloqueada_estoque", {
+          venda_id: vendaId,
+          funcionario_id: dados.funcionarioId,
+          dispositivo,
+          detalhes: `${item.nome}: solicitado ${item.quantidade}, disponível ${disponivel}`,
+        });
+        return {
+          sucesso: false,
+          erro: `Estoque insuficiente para ${item.nome}. Disponível: ${disponivel}, solicitado: ${item.quantidade}.`,
+        };
+      }
+    }
+
     await db.transaction(
       "rw",
       db.vendas_locais,
@@ -85,9 +105,10 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
         await db.vendas_locais.put(venda);
         await db.itens_venda_locais.bulkPut(itensLocais);
 
-        // Baixa de estoque local — nunca bloqueia a venda, pode ficar
-        // negativo (mesmo princípio já aplicado no servidor desde a
-        // Etapa 6: "a venda nunca pode ser impedida").
+        // Baixa de estoque local. Chegou até aqui só porque a
+        // validação acima (antes da transação) já confirmou que há
+        // estoque suficiente — não deveria ficar negativo em uso
+        // normal, mas o cálculo continua sendo feito por segurança.
         for (const item of dados.itens) {
           const atual = await db.estoque_local.get(item.produto_id);
           await db.estoque_local.put({
@@ -112,7 +133,7 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
         };
 
         await db.fila_sincronizacao.put({
-          id: vendaId, // mesmo id da venda — garante idempotência na sincronização futura
+          id: vendaId,
           tipo: "venda",
           payload: JSON.stringify(payloadSincronizacao),
           status: "pendente",
@@ -122,8 +143,6 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
           erro: null,
         });
 
-        // Venda concluída — carrinho esvazia (requisito de persistência: só
-        // esvazia ao concluir ou por cancelamento explícito, nunca sozinho).
         await db.carrinho_local.clear();
       }
     );

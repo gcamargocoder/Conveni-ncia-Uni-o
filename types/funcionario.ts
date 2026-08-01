@@ -1,6 +1,6 @@
 import { BaseEntity } from "./base";
 
-export type Cargo = "proprietario" | "gerente" | "caixa" | "estoquista";
+export type Cargo = "proprietario" | "gerente" | "caixa" | "estoquista" | "frentista";
 
 export interface Funcionario extends BaseEntity {
   nome: string;

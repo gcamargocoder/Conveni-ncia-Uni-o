@@ -18,6 +18,10 @@ beforeEach(async () => {
     db.auditoria_local.clear(),
     db.configuracoes_local.clear(),
   ]);
+  // Etapa 8.2: registrarVendaLocal agora valida estoque de verdade.
+  // Este arquivo testa sincronização, não estoque — mantém "p1" com
+  // estoque de sobra para não interferir nesses testes.
+  await db.estoque_local.put({ produto_id: "p1", quantidade_atual: 1000, estoque_minimo: 0, updated_at: "" });
 });
 
 const itensExemplo: ItemCarrinho[] = [{ produto_id: "p1", nome: "Água", preco_unitario: 3, quantidade: 2 }];

@@ -6,6 +6,7 @@ import { ProdutoBusca } from "@/components/pdv/ProdutoBusca";
 import { CarrinhoView } from "@/components/pdv/CarrinhoView";
 import { PinInput } from "@/components/auth/PinInput";
 import { ReciboTermico } from "@/components/pdv/ReciboTermico";
+import { EstoqueInsuficienteModal, PendenciaEstoque } from "@/components/pdv/EstoqueInsuficienteModal";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -15,6 +16,7 @@ import { registrarVendaLocal } from "@/services/offline/vendas-local.service";
 import { processarFilaSincronizacao } from "@/services/offline/worker-sincronizacao.service";
 import { salvarCarrinhoLocal, carregarCarrinhoLocal, limparCarrinhoLocal } from "@/services/offline/carrinho-local.service";
 import { obterEstoqueLocalPorProduto } from "@/services/offline/estoque-local.service";
+import { registrarEventoAuditoriaLocal } from "@/services/offline/auditoria-local.service";
 import { validarPinLocalmente } from "@/services/offline/pin-local.service";
 import { FormaPagamento, ProdutoParaVenda } from "@/types/venda";
 import { VendaCompleta } from "@/services/vendas.service";
@@ -26,12 +28,16 @@ const FORMAS: { valor: FormaPagamento; rotulo: string; icone: typeof Banknote }[
   { valor: "credito", rotulo: "Crédito", icone: Landmark },
 ];
 
+interface PendenciaEstoqueComProduto extends PendenciaEstoque {
+  produtoParaAdicionar?: ProdutoParaVenda;
+}
+
 export function PDVClient() {
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("dinheiro");
   const [pedindoPin, setPedindoPin] = useState(false);
   const [pedindoCancelamento, setPedindoCancelamento] = useState(false);
-  const [produtoSemEstoque, setProdutoSemEstoque] = useState<string | null>(null);
+  const [pendenciaEstoque, setPendenciaEstoque] = useState<PendenciaEstoqueComProduto | null>(null);
   const [ultimaVendaLocal, setUltimaVendaLocal] = useState<VendaCompleta | null>(null);
   const carregouCarrinhoInicial = useRef(false);
   const { mostrar } = useToast();
@@ -51,9 +57,6 @@ export function PDVClient() {
   }, [carrinho]);
 
   async function finalizarComPin(pin: string) {
-    // Validação 100% local — funciona offline. Depende do catálogo
-    // (que inclui funcionários) já ter sido sincronizado ao menos uma
-    // vez com internet disponível.
     const auth = await validarPinLocalmente(pin);
     if (!auth.sucesso || !auth.funcionario) {
       throw new Error(auth.erro ?? "PIN inválido.");
@@ -95,13 +98,73 @@ export function PDVClient() {
     mostrar("info", "Venda cancelada.");
   }
 
-  async function aoSelecionarProduto(produto: ProdutoParaVenda) {
-    setCarrinho((c) => adicionarItem(c, produto));
-
-    const estoque = await obterEstoqueLocalPorProduto(produto.produto_id);
-    if (!estoque || estoque.quantidade_atual <= 0) {
-      setProdutoSemEstoque(produto.nome);
+  async function verificarEAplicarQuantidade(
+    produtoId: string,
+    nome: string,
+    quantidadeDesejada: number,
+    produtoParaAdicionar?: ProdutoParaVenda
+  ) {
+    if (quantidadeDesejada <= 0) {
+      setCarrinho((c) => removerItem(c, produtoId));
+      return;
     }
+
+    const estoque = await obterEstoqueLocalPorProduto(produtoId);
+    const disponivel = estoque?.quantidade_atual ?? 0;
+
+    if (quantidadeDesejada > disponivel) {
+      setPendenciaEstoque({
+        produtoId,
+        nome,
+        quantidadeSolicitada: quantidadeDesejada,
+        quantidadeDisponivel: disponivel,
+        produtoParaAdicionar,
+      });
+      registrarEventoAuditoriaLocal("estoque_insuficiente_tentativa", {
+        detalhes: `${nome}: solicitado ${quantidadeDesejada}, disponível ${disponivel}`,
+      });
+      return;
+    }
+
+    if (produtoParaAdicionar) {
+      setCarrinho((c) => adicionarItem(c, produtoParaAdicionar, quantidadeDesejada));
+    } else {
+      setCarrinho((c) => alterarQuantidade(c, produtoId, quantidadeDesejada));
+    }
+  }
+
+  async function aoSelecionarProduto(produto: ProdutoParaVenda) {
+    const itemExistente = carrinho.find((i) => i.produto_id === produto.produto_id);
+    const quantidadeDesejada = (itemExistente?.quantidade ?? 0) + 1;
+    await verificarEAplicarQuantidade(
+      produto.produto_id,
+      produto.nome,
+      quantidadeDesejada,
+      itemExistente ? undefined : produto
+    );
+  }
+
+  async function aoAlterarQuantidadeNoCarrinho(produtoId: string, quantidade: number) {
+    const item = carrinho.find((i) => i.produto_id === produtoId);
+    await verificarEAplicarQuantidade(produtoId, item?.nome ?? "", quantidade);
+  }
+
+  function aplicarAjusteDeEstoque() {
+    if (!pendenciaEstoque) return;
+    const { produtoId, quantidadeDisponivel, produtoParaAdicionar } = pendenciaEstoque;
+
+    if (quantidadeDisponivel <= 0) {
+      setCarrinho((c) => removerItem(c, produtoId));
+    } else if (produtoParaAdicionar) {
+      setCarrinho((c) => adicionarItem(c, produtoParaAdicionar, quantidadeDisponivel));
+    } else {
+      setCarrinho((c) => alterarQuantidade(c, produtoId, quantidadeDisponivel));
+    }
+
+    registrarEventoAuditoriaLocal("estoque_ajuste_automatico", {
+      detalhes: `${pendenciaEstoque.nome}: ajustado de ${pendenciaEstoque.quantidadeSolicitada} para ${quantidadeDisponivel}`,
+    });
+    setPendenciaEstoque(null);
   }
 
   if (ultimaVendaLocal) {
@@ -131,7 +194,7 @@ export function PDVClient() {
           <Card semPadding className="p-2">
             <CarrinhoView
               itens={carrinho}
-              onAlterarQuantidade={(id, qtd) => setCarrinho((c) => alterarQuantidade(c, id, qtd))}
+              onAlterarQuantidade={aoAlterarQuantidadeNoCarrinho}
               onRemover={(id) => setCarrinho((c) => removerItem(c, id))}
             />
           </Card>
@@ -208,19 +271,12 @@ export function PDVClient() {
       >
         Os itens do carrinho serão perdidos. Esta ação não pode ser desfeita.
       </Modal>
-      <Modal
-        aberto={!!produtoSemEstoque}
-        titulo="Sem estoque"
-        onFechar={() => setProdutoSemEstoque(null)}
-        rodape={
-          <Button tamanho="sm" onClick={() => setProdutoSemEstoque(null)}>
-            OK
-          </Button>
-        }
-      >
-        <strong>{produtoSemEstoque}</strong> está com estoque zerado ou negativo no sistema. A
-        venda continua normalmente — isso é só um aviso para conferir o estoque depois.
-      </Modal>
+
+      <EstoqueInsuficienteModal
+        pendencia={pendenciaEstoque}
+        onAjustar={aplicarAjusteDeEstoque}
+        onCancelar={() => setPendenciaEstoque(null)}
+      />
     </main>
   );
 }

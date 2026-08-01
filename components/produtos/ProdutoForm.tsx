@@ -4,9 +4,10 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Plus, Camera } from "lucide-react";
 import { DadosProduto, precoVendaAbaixoDoCusto, PADRAO_ESTOQUE_MINIMO } from "@/lib/produtos/validacao";
-import { criarProdutoAction } from "@/lib/produtos/actions";
+import { criarProdutoAction, atualizarProdutoAction } from "@/lib/produtos/actions";
 import { criarCategoriaAction } from "@/lib/produtos/categorias-actions";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Alert } from "@/components/ui/Alert";
@@ -19,25 +20,36 @@ const LeitorCameraModal = dynamic(
 
 interface ProdutoFormProps {
   categorias: { id: string; nome: string }[];
+  fornecedores: { id: string; nome: string }[];
+  produtoId?: string;
+  dadosIniciais?: DadosProduto;
   onSucesso?: () => void;
 }
 
 const VAZIO: DadosProduto = {
   nome: "",
   categoria_id: "",
+  fornecedor_id: "",
   preco_venda: 0,
   preco_custo: 0,
   estoque_minimo: PADRAO_ESTOQUE_MINIMO,
   codigo_barras: "",
+  unidade: "un",
+  descricao: "",
+  ativo: true,
 };
 
-const CLASSES_SELECT = "h-11 px-3 rounded-lg text-base bg-white border border-slate-300 focus:border-brand-600";
-
-export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: ProdutoFormProps) {
+export function ProdutoForm({
+  categorias: categoriasIniciais,
+  fornecedores,
+  produtoId,
+  dadosIniciais,
+  onSucesso,
+}: ProdutoFormProps) {
   const [categorias, setCategorias] = useState(categoriasIniciais);
   const [novaCategoria, setNovaCategoria] = useState("");
   const [criandoCategoria, setCriandoCategoria] = useState(false);
-  const [dados, setDados] = useState<DadosProduto>(VAZIO);
+  const [dados, setDados] = useState<DadosProduto>(dadosIniciais ?? VAZIO);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -45,15 +57,20 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
   const [leitorCameraAberto, setLeitorCameraAberto] = useState(false);
   const { mostrar } = useToast();
 
+  const emEdicao = !!produtoId;
   const alertaMargem = precoVendaAbaixoDoCusto(dados);
 
   async function salvarDeFato() {
+    if (salvando) return;
     setSalvando(true);
     setErroGeral(null);
     setErros({});
     setPedindoConfirmacaoMargem(false);
 
-    const resultado = await criarProdutoAction(dados);
+    const resultado = emEdicao
+      ? await atualizarProdutoAction(produtoId, dados)
+      : await criarProdutoAction(dados);
+
     setSalvando(false);
 
     if (!resultado.sucesso) {
@@ -61,15 +78,17 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
         setErros(Object.fromEntries(resultado.erros.map((e) => [e.campo, e.mensagem])));
       }
       if (resultado.erroGeral) setErroGeral(resultado.erroGeral);
+      mostrar("danger", "Não foi possível salvar. Confira os campos destacados.");
       return;
     }
 
-    setDados(VAZIO);
-    mostrar("success", "Produto salvo.");
+    if (!emEdicao) setDados(VAZIO);
+    mostrar("success", emEdicao ? "Produto atualizado." : "Produto salvo.");
     onSucesso?.();
   }
 
   function aoClicarSalvar() {
+    if (salvando) return;
     if (alertaMargem) {
       setPedindoConfirmacaoMargem(true);
       return;
@@ -89,9 +108,9 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-slate-700">Categoria</label>
-        <select
-          className={CLASSES_SELECT}
+        <Select
           value={dados.categoria_id}
+          erro={erros.categoria_id}
           onChange={(e) => setDados({ ...dados, categoria_id: e.target.value })}
         >
           <option value="">Selecione...</option>
@@ -100,8 +119,7 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
               {c.nome}
             </option>
           ))}
-        </select>
-        {erros.categoria_id && <p className="text-danger-600 text-sm">{erros.categoria_id}</p>}
+        </Select>
 
         <div className="flex gap-2 mt-1">
           <input
@@ -131,6 +149,19 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
         </div>
       </div>
 
+      <Select
+        rotulo="Fornecedor (opcional)"
+        value={dados.fornecedor_id ?? ""}
+        onChange={(e) => setDados({ ...dados, fornecedor_id: e.target.value || null })}
+      >
+        <option value="">Nenhum</option>
+        {fornecedores.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.nome}
+          </option>
+        ))}
+      </Select>
+
       <div className="flex gap-3">
         <Input
           rotulo="Preço de custo"
@@ -154,25 +185,59 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
 
       {alertaMargem && <Alert variante="warning">Preço de venda está abaixo do custo.</Alert>}
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Código de barras (opcional)</label>
-        <div className="flex gap-2">
-          <Input
-            value={dados.codigo_barras ?? ""}
-            erro={erros.codigo_barras}
-            onChange={(e) => setDados({ ...dados, codigo_barras: e.target.value })}
-            className="flex-1"
-          />
-          <Button
-            type="button"
-            variante="secondary"
-            onClick={() => setLeitorCameraAberto(true)}
-            aria-label="Escanear código de barras com a câmera"
-          >
-            <Camera className="w-4 h-4" />
-          </Button>
+      <div className="flex gap-3">
+        <div className="flex-1 flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-slate-700">Código de barras (opcional)</label>
+          <div className="flex gap-2">
+            <Input
+              value={dados.codigo_barras ?? ""}
+              erro={erros.codigo_barras}
+              onChange={(e) => setDados({ ...dados, codigo_barras: e.target.value })}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variante="secondary"
+              onClick={() => setLeitorCameraAberto(true)}
+              aria-label="Escanear código de barras com a câmera"
+            >
+              <Camera className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
+
+        <Select
+          rotulo="Unidade"
+          className="w-28"
+          value={dados.unidade ?? "un"}
+          onChange={(e) => setDados({ ...dados, unidade: e.target.value as "un" | "kg" | "l" })}
+        >
+          <option value="un">Unidade</option>
+          <option value="kg">Kg</option>
+          <option value="l">Litro</option>
+        </Select>
       </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-slate-700">Descrição (opcional)</label>
+        <textarea
+          className="h-20 px-3 py-2 rounded-lg text-base bg-white border border-slate-300 focus:border-brand-600"
+          value={dados.descricao ?? ""}
+          onChange={(e) => setDados({ ...dados, descricao: e.target.value })}
+        />
+      </div>
+
+      {emEdicao && (
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={dados.ativo ?? true}
+            onChange={(e) => setDados({ ...dados, ativo: e.target.checked })}
+            className="w-4 h-4 rounded border-slate-300"
+          />
+          Produto ativo
+        </label>
+      )}
 
       {erroGeral && <Alert variante="danger">{erroGeral}</Alert>}
 
@@ -187,8 +252,8 @@ export function ProdutoForm({ categorias: categoriasIniciais, onSucesso }: Produ
         />
       )}
 
-      <Button tamanho="lg" carregando={salvando} onClick={aoClicarSalvar}>
-        Salvar produto
+      <Button tamanho="lg" carregando={salvando} disabled={salvando} onClick={aoClicarSalvar}>
+        {emEdicao ? "Salvar alterações" : "Salvar produto"}
       </Button>
 
       <Modal

@@ -15,10 +15,14 @@ export const PADRAO_ESTOQUE_MINIMO = 10;
 export interface DadosProduto {
   nome: string;
   categoria_id: string;
+  fornecedor_id?: string | null;
   preco_venda: number;
   preco_custo: number;
   estoque_minimo: number;
   codigo_barras?: string | null;
+  unidade?: "un" | "kg" | "l";
+  descricao?: string | null;
+  ativo?: boolean;
 }
 
 export function validarProduto(dados: DadosProduto): ErroValidacaoProduto[] {

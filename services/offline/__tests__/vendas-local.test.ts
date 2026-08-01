@@ -15,6 +15,10 @@ beforeEach(async () => {
     db.auditoria_local.clear(),
     db.configuracoes_local.clear(),
   ]);
+  await db.estoque_local.bulkPut([
+    { produto_id: "p1", quantidade_atual: 100, estoque_minimo: 0, updated_at: "" },
+    { produto_id: "p2", quantidade_atual: 100, estoque_minimo: 0, updated_at: "" },
+  ]);
 });
 
 const itensExemplo: ItemCarrinho[] = [
@@ -40,7 +44,7 @@ describe("registrarVendaLocal — venda e itens", () => {
     const venda = await db.vendas_locais.get(resultado.vendaId!);
     const itens = await buscarItensDaVendaLocal(resultado.vendaId!);
 
-    expect(venda?.total).toBe(11); // 2*3 + 1*5
+    expect(venda?.total).toBe(11);
     expect(venda?.status).toBe("pendente_sincronizacao");
     expect(venda?.funcionario_nome).toBe("Maria");
     expect(itens).toHaveLength(2);
@@ -64,25 +68,33 @@ describe("registrarVendaLocal — estoque local", () => {
     expect(estoque?.quantidade_atual).toBe(6);
   });
 
-  it("permite estoque ficar negativo — a venda nunca é bloqueada por falta de estoque", async () => {
+  it("Etapa 8.2: bloqueia a venda quando a quantidade pedida é maior que o disponível", async () => {
     const db = getOfflineDB();
-    await db.estoque_local.put({ produto_id: "p1", quantidade_atual: 1, estoque_minimo: 0, updated_at: "" });
+    await db.estoque_local.put({ produto_id: "p1", quantidade_atual: 3, estoque_minimo: 0, updated_at: "" });
 
     const resultado = await registrarVendaLocal(
       dadosVenda([{ produto_id: "p1", nome: "Água", preco_unitario: 3, quantidade: 5 }])
     );
 
-    expect(resultado.sucesso).toBe(true);
+    expect(resultado.sucesso).toBe(false);
+    expect(resultado.erro).toContain("Estoque insuficiente");
+
     const estoque = await db.estoque_local.get("p1");
-    expect(estoque?.quantidade_atual).toBe(-4);
+    expect(estoque?.quantidade_atual).toBe(3);
+    expect(await db.vendas_locais.count()).toBe(0);
+
+    const eventoBloqueio = (await listarAuditoriaLocal()).find((e) => e.tipo === "venda_bloqueada_estoque");
+    expect(eventoBloqueio).toBeDefined();
   });
 
-  it("cria o registro de estoque local se o produto nunca teve um antes", async () => {
-    await registrarVendaLocal(dadosVenda([{ produto_id: "p-novo", nome: "Novo", preco_unitario: 2, quantidade: 1 }]));
+  it("bloqueia a venda de um produto sem nenhum registro de estoque local (tratado como 0 disponível)", async () => {
+    const resultado = await registrarVendaLocal(
+      dadosVenda([{ produto_id: "p-novo", nome: "Novo", preco_unitario: 2, quantidade: 1 }])
+    );
 
+    expect(resultado.sucesso).toBe(false);
     const db = getOfflineDB();
-    const estoque = await db.estoque_local.get("p-novo");
-    expect(estoque?.quantidade_atual).toBe(-1);
+    expect(await db.vendas_locais.count()).toBe(0);
   });
 });
 
@@ -99,9 +111,6 @@ describe("registrarVendaLocal — fila de sincronização", () => {
   });
 
   it("não envia nada para fora — só grava localmente (fase 3 não sincroniza)", async () => {
-    // Nenhum mock de rede/fetch é configurado neste teste. Se
-    // registrarVendaLocal tentasse chamar o servidor, o teste falharia
-    // por uma exceção de rede não tratada, não por uma asserção.
     const resultado = await registrarVendaLocal(dadosVenda());
     expect(resultado.sucesso).toBe(true);
   });
