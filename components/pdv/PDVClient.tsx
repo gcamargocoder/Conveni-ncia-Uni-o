@@ -67,9 +67,11 @@ export function PDVClient() {
     if (forma === "fiado" && !clienteSelecionado) {
       setSelecionandoCliente(true);
     }
-    if (forma !== "fiado") {
-      setClienteSelecionado(null);
-    }
+    // Não limpa mais o cliente ao trocar de forma de pagamento: agora
+    // o cliente é opcional pra qualquer forma (dinheiro, PIX, cartão),
+    // não só pra fiado — faz sentido manter a seleção se a pessoa já
+    // escolheu, por exemplo pra emitir a notinha com o nome de uma
+    // empresa. Só fiado continua obrigatório (ver fiadoSemCliente).
   }
 
   async function finalizarComPin(pin: string) {
@@ -101,6 +103,8 @@ export function PDVClient() {
       forma_pagamento: formaPagamento,
       cancelada: false,
       funcionario_nome: auth.funcionario.nome,
+      cliente_nome: clienteSelecionado?.nome ?? null,
+      cliente_telefone: clienteSelecionado?.telefone ?? null,
       itens: carrinho.map((i) => ({
         produto_nome: i.nome,
         quantidade: i.quantidade,
@@ -262,31 +266,31 @@ export function PDVClient() {
               </div>
             </div>
 
-            {formaPagamento === "fiado" && (
-              <div className="flex flex-col gap-1.5">
-                <p className="text-xs font-medium text-slate-500">Cliente</p>
-                {clienteSelecionado ? (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <User className="w-4 h-4 text-brand-700 shrink-0" />
-                      <span className="text-sm font-medium text-slate-800 truncate">{clienteSelecionado.nome}</span>
-                    </div>
-                    <button
-                      onClick={() => setClienteSelecionado(null)}
-                      aria-label="Remover cliente selecionado"
-                      className="text-slate-400 hover:text-slate-600 shrink-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs font-medium text-slate-500">
+                Cliente {formaPagamento === "fiado" ? "(obrigatório)" : "(opcional)"}
+              </p>
+              {clienteSelecionado ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User className="w-4 h-4 text-brand-700 shrink-0" />
+                    <span className="text-sm font-medium text-slate-800 truncate">{clienteSelecionado.nome}</span>
                   </div>
-                ) : (
-                  <Button variante="secondary" tamanho="sm" onClick={() => setSelecionandoCliente(true)}>
-                    <User className="w-3.5 h-3.5" />
-                    Selecionar cliente
-                  </Button>
-                )}
-              </div>
-            )}
+                  <button
+                    onClick={() => setClienteSelecionado(null)}
+                    aria-label="Remover cliente selecionado"
+                    className="text-slate-400 hover:text-slate-600 shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <Button variante="secondary" tamanho="sm" onClick={() => setSelecionandoCliente(true)}>
+                  <User className="w-3.5 h-3.5" />
+                  Selecionar cliente
+                </Button>
+              )}
+            </div>
 
             <Button
               tamanho="lg"

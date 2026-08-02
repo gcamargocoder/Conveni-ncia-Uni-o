@@ -12,10 +12,15 @@ import {
   Tags,
   FileBarChart2,
   HandCoins,
+  Users,
+  AlertOctagon,
+  CalendarClock,
+  Wallet,
 } from "lucide-react";
 import { buscarResumoDashboard } from "@/services/dashboard.service";
 import { listarHistorico } from "@/services/historico.service";
-import { listarContasPendentes } from "@/services/contas-receber.service";
+import { listarContasPendentes, buscarResumoFinanceiro } from "@/services/contas-receber.service";
+import { classificarUrgencia } from "@/lib/contas-receber/urgencia";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -40,18 +45,18 @@ export default async function DashboardPage() {
   seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
   seteDiasAtras.setHours(0, 0, 0, 0);
 
-  const [resumo, historico, contasPendentes] = await Promise.all([
+  const [resumo, historico, contasPendentes, resumoFinanceiro] = await Promise.all([
     buscarResumoDashboard(),
     listarHistorico(seteDiasAtras, new Date()),
     listarContasPendentes(),
+    buscarResumoFinanceiro(),
   ]);
 
   const ticketMedio =
     resumo.quantidadeVendasHoje > 0 ? resumo.faturamentoHoje / resumo.quantidadeVendasHoje : 0;
 
   const ultimasMovimentacoes = historico.slice(0, 5);
-  const totalFiadoPendente = contasPendentes.reduce((s, c) => s + c.saldo_atual, 0);
-  const maisAntigas = contasPendentes.slice(0, 5);
+  const maisUrgentes = contasPendentes.slice(0, 5);
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-6">
@@ -115,36 +120,74 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <HandCoins className="w-4 h-4 text-brand-700" />
-                <h2 className="text-sm font-semibold text-slate-700">Fiado pendente</h2>
+                <h2 className="text-sm font-semibold text-slate-700">Contas a Receber</h2>
               </div>
               <Link href="/contas-receber" className="text-xs font-medium text-brand-700 hover:underline">
                 Ver todas
               </Link>
             </div>
+
+            <div className="flex items-baseline justify-between border-b border-slate-100 pb-3 mb-3">
+              <span className="text-slate-500 text-sm">Valor total em aberto</span>
+              <span className="text-2xl font-bold text-slate-900 tabular-nums">
+                {formatarMoeda(resumoFinanceiro.valorTotalEmAberto)}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <Users className="w-3.5 h-3.5" />
+                  Devedores
+                </span>
+                <span className="text-lg font-bold text-slate-900">{resumoFinanceiro.quantidadeClientesDevedores}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <AlertOctagon className="w-3.5 h-3.5 text-danger-600" />
+                  Vencidas
+                </span>
+                <span className="text-lg font-bold text-danger-600">{resumoFinanceiro.quantidadeContasVencidas}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <CalendarClock className="w-3.5 h-3.5 text-warning-600" />
+                  Perto de vencer
+                </span>
+                <span className="text-lg font-bold text-warning-600">
+                  {resumoFinanceiro.quantidadeContasProximasVencimento}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <Wallet className="w-3.5 h-3.5" />
+                  Recebido hoje
+                </span>
+                <span className="text-lg font-bold text-slate-900">{formatarMoeda(resumoFinanceiro.valorRecebidoHoje)}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-3">
+              Recebido no mês: <strong className="text-slate-700">{formatarMoeda(resumoFinanceiro.valorRecebidoNoMes)}</strong>
+            </p>
+
             {contasPendentes.length === 0 ? (
               <EmptyState icone={HandCoins} titulo="Nenhuma conta em aberto" />
             ) : (
-              <>
-                <div className="flex items-baseline justify-between border-b border-slate-100 pb-3 mb-3">
-                  <span className="text-slate-500 text-sm">Total a receber</span>
-                  <span className="text-2xl font-bold text-slate-900 tabular-nums">
-                    {formatarMoeda(totalFiadoPendente)}
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-2.5">
-                  {maisAntigas.map((c) => (
+              <ul className="flex flex-col gap-2.5 border-t border-slate-100 pt-3">
+                {maisUrgentes.map((c) => {
+                  const urgencia = classificarUrgencia(c.dias_em_aberto);
+                  return (
                     <li key={c.id} className="flex items-center justify-between text-sm">
                       <span className="text-slate-700">{c.cliente_nome}</span>
                       <span className="flex items-center gap-2">
                         <span className="text-slate-500 font-medium">{formatarMoeda(c.saldo_atual)}</span>
-                        <Badge variante={c.dias_em_aberto > 30 ? "danger" : "warning"}>
-                          {c.dias_em_aberto} dia(s)
-                        </Badge>
+                        <Badge variante={urgencia.variante}>{urgencia.rotulo}</Badge>
                       </span>
                     </li>
-                  ))}
-                </ul>
-              </>
+                  );
+                })}
+              </ul>
             )}
           </Card>
         </div>

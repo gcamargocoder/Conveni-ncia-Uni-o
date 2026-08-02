@@ -23,5 +23,6 @@ export interface Recebimento {
 
 export interface ContaReceberComCliente extends ContaReceber {
   cliente_nome: string;
+  cliente_telefone: string | null;
   venda_created_at: string;
 }

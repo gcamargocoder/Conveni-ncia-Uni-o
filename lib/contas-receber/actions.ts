@@ -1,12 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { registrarPagamento, buscarConta, DetalheContaReceber } from "@/services/contas-receber.service";
+import {
+  registrarPagamento,
+  buscarConta,
+  buscarDetalheCliente,
+  DetalheContaReceber,
+  DetalheCliente,
+} from "@/services/contas-receber.service";
 import { validarPagamento, DadosFormPagamento } from "@/lib/contas-receber/validacao";
 import { validarPinAction } from "@/lib/auth/actions";
 
 export async function buscarContaAction(id: string): Promise<DetalheContaReceber | null> {
   return buscarConta(id);
+}
+
+export async function buscarDetalheClienteAction(clienteId: string): Promise<DetalheCliente | null> {
+  return buscarDetalheCliente(clienteId);
 }
 
 export interface ResultadoAcaoPagamento {

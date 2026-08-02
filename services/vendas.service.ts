@@ -54,6 +54,8 @@ export interface VendaCompleta {
   forma_pagamento: string;
   cancelada: boolean;
   funcionario_nome: string;
+  cliente_nome?: string | null;
+  cliente_telefone?: string | null;
   itens: ItemVendaDetalhado[];
 }
 
@@ -62,7 +64,7 @@ export async function buscarVendaCompleta(vendaId: string): Promise<VendaComplet
 
   const resultadoVenda = await supabase
     .from("vendas")
-    .select("id, created_at, total, forma_pagamento, cancelada, funcionarios(nome)")
+    .select("id, created_at, total, forma_pagamento, cancelada, funcionarios(nome), clientes(nome, telefone)")
     .eq("id", vendaId)
     .single();
 
@@ -74,11 +76,13 @@ export async function buscarVendaCompleta(vendaId: string): Promise<VendaComplet
     .eq("venda_id", vendaId);
 
   const itens = unwrap(resultadoItens, "Erro ao buscar itens da venda");
-  const { funcionarios, ...dadosVenda } = resultadoVenda.data as any;
+  const { funcionarios, clientes, ...dadosVenda } = resultadoVenda.data as any;
 
   return {
     ...dadosVenda,
     funcionario_nome: funcionarios?.nome ?? "—",
+    cliente_nome: clientes?.nome ?? null,
+    cliente_telefone: clientes?.telefone ?? null,
     itens: (itens ?? []).map((i: any) => ({
       produto_nome: i.produtos?.nome ?? "Produto removido",
       quantidade: i.quantidade,
