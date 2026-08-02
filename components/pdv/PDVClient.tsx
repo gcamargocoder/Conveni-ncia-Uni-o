@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Banknote, Smartphone, CreditCard, Landmark, HandCoins, ShoppingCart, User, X } from "lucide-react";
+import { Banknote, Smartphone, CreditCard, Landmark, HandCoins, ShoppingCart, User, X, Search } from "lucide-react";
 import { ProdutoBusca } from "@/components/pdv/ProdutoBusca";
 import { CarrinhoView } from "@/components/pdv/CarrinhoView";
 import { PinInput } from "@/components/auth/PinInput";
@@ -67,16 +67,16 @@ export function PDVClient() {
     if (forma === "fiado" && !clienteSelecionado) {
       setSelecionandoCliente(true);
     }
-    // Não limpa mais o cliente ao trocar de forma de pagamento: agora
-    // o cliente é opcional pra qualquer forma (dinheiro, PIX, cartão),
-    // não só pra fiado — faz sentido manter a seleção se a pessoa já
-    // escolheu, por exemplo pra emitir a notinha com o nome de uma
-    // empresa. Só fiado continua obrigatório (ver fiadoSemCliente).
+  }
+
+  function aoSelecionarCliente(cliente: ClienteLocal) {
+    setClienteSelecionado(cliente);
+    setSelecionandoCliente(false);
   }
 
   async function finalizarComPin(pin: string) {
     if (fiadoSemCliente) {
-      throw new Error("Selecione um cliente antes de finalizar uma venda fiado.");
+      throw new Error("Selecione um cliente cadastrado antes de finalizar uma venda fiado.");
     }
 
     const auth = await validarPinLocalmente(pin);
@@ -215,6 +215,36 @@ export function PDVClient() {
         <p className="text-slate-500 text-sm">Realizar venda</p>
       </header>
 
+      <Card className="mb-4">
+        <p className="text-xs font-medium text-slate-500 mb-2">
+          Cliente na nota {formaPagamento === "fiado" ? "(obrigatório para fiado)" : "(opcional)"}
+        </p>
+
+        {clienteSelecionado ? (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <User className="w-4 h-4 text-brand-700 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{clienteSelecionado.nome}</p>
+                {clienteSelecionado.telefone && <p className="text-xs text-slate-500">{clienteSelecionado.telefone}</p>}
+              </div>
+            </div>
+            <button
+              onClick={() => setClienteSelecionado(null)}
+              aria-label="Remover cliente selecionado"
+              className="text-slate-400 hover:text-slate-600 shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <Button variante="secondary" tamanho="sm" onClick={() => setSelecionandoCliente(true)}>
+            <Search className="w-3.5 h-3.5" />
+            Buscar ou cadastrar cliente
+          </Button>
+        )}
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-4">
           <Card>
@@ -264,32 +294,6 @@ export function PDVClient() {
                   );
                 })}
               </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <p className="text-xs font-medium text-slate-500">
-                Cliente {formaPagamento === "fiado" ? "(obrigatório)" : "(opcional)"}
-              </p>
-              {clienteSelecionado ? (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <User className="w-4 h-4 text-brand-700 shrink-0" />
-                    <span className="text-sm font-medium text-slate-800 truncate">{clienteSelecionado.nome}</span>
-                  </div>
-                  <button
-                    onClick={() => setClienteSelecionado(null)}
-                    aria-label="Remover cliente selecionado"
-                    className="text-slate-400 hover:text-slate-600 shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <Button variante="secondary" tamanho="sm" onClick={() => setSelecionandoCliente(true)}>
-                  <User className="w-3.5 h-3.5" />
-                  Selecionar cliente
-                </Button>
-              )}
             </div>
 
             <Button
@@ -342,10 +346,7 @@ export function PDVClient() {
       <SelecionarClienteModal
         aberto={selecionandoCliente}
         onFechar={() => setSelecionandoCliente(false)}
-        onSelecionar={(cliente) => {
-          setClienteSelecionado(cliente);
-          setSelecionandoCliente(false);
-        }}
+        onSelecionar={aoSelecionarCliente}
       />
     </main>
   );

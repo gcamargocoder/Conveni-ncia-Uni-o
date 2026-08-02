@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { criarCliente, atualizarCliente, desativarCliente } from "@/services/clientes.service";
 import { validarCliente, DadosCliente } from "@/lib/clientes/validacao";
+import type { Cliente } from "@/types/cliente";
 
 export interface ResultadoAcaoCliente {
   sucesso: boolean;
   erros?: { campo: string; mensagem: string }[];
   erroGeral?: string;
+  cliente?: Cliente;
 }
 
 export async function criarClienteAction(dados: DadosCliente): Promise<ResultadoAcaoCliente> {
@@ -15,9 +17,9 @@ export async function criarClienteAction(dados: DadosCliente): Promise<Resultado
   if (erros.length > 0) return { sucesso: false, erros };
 
   try {
-    await criarCliente(dados);
+    const cliente = await criarCliente(dados);
     revalidatePath("/clientes");
-    return { sucesso: true };
+    return { sucesso: true, cliente };
   } catch (e) {
     return { sucesso: false, erroGeral: (e as Error).message };
   }

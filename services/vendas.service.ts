@@ -56,6 +56,7 @@ export interface VendaCompleta {
   funcionario_nome: string;
   cliente_nome?: string | null;
   cliente_telefone?: string | null;
+  desconto?: number | null;
   itens: ItemVendaDetalhado[];
 }
 

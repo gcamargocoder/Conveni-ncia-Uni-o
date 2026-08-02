@@ -100,7 +100,7 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
           <select
             value={ordenacao}
             onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
-            className="h-11 px-3 rounded-lg text-sm bg-white border border-slate-300 focus:border-brand-600"
+            className="w-full sm:w-auto h-11 px-3 rounded-lg text-sm bg-white border border-slate-300 focus:border-brand-600"
           >
             {OPCOES_ORDENACAO.map((o) => (
               <option key={o.valor} value={o.valor}>
@@ -108,7 +108,7 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
               </option>
             ))}
           </select>
-          <Button variante="secondary" tamanho="sm" onClick={imprimir}>
+          <Button variante="secondary" tamanho="sm" onClick={imprimir} className="w-full sm:w-auto justify-center">
             <Printer className="w-3.5 h-3.5" />
             Imprimir Relatório
           </Button>
@@ -154,7 +154,7 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
             { chave: "cliente_telefone", cabecalho: "Telefone", render: (d) => d.cliente_telefone ?? "—" },
             {
               chave: "primeira_compra_em_aberto",
-              cabecalho: "1ª compra em aberto",
+              cabecalho: "1ª compra",
               render: (d) => new Date(d.primeira_compra_em_aberto).toLocaleDateString("pt-BR"),
             },
             {

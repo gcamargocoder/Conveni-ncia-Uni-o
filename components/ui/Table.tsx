@@ -25,8 +25,6 @@ export function Table<T>({ colunas, dados, chaveLinha, vazioIcone, vazioTitulo, 
 
   return (
     <>
-      {/* Celular: cada linha vira um cartão com os campos empilhados —
-          nunca precisa de rolagem lateral, só de cima pra baixo. */}
       <div className="sm:hidden flex flex-col divide-y divide-slate-100">
         {dados.map((item) => (
           <div key={chaveLinha(item)} className="py-3 px-5 flex flex-col gap-1.5">
@@ -50,29 +48,30 @@ export function Table<T>({ colunas, dados, chaveLinha, vazioIcone, vazioTitulo, 
         ))}
       </div>
 
-      {/* Tablet/desktop: tabela tradicional — já tem largura de sobra. */}
-      <table className="hidden sm:table w-full text-left border-collapse">
-        <thead>
-          <tr className="text-xs text-slate-500 border-b border-slate-100">
-            {colunas.map((c) => (
-              <th key={c.chave} className="py-2 px-5 font-medium whitespace-nowrap">
-                {c.cabecalho}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {dados.map((item) => (
-            <tr key={chaveLinha(item)} className="border-b border-slate-50 last:border-0">
+      <div className="hidden sm:block">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="text-xs text-slate-500 border-b border-slate-100">
               {colunas.map((c) => (
-                <td key={c.chave} className={`py-3 px-5 text-slate-800 whitespace-nowrap ${c.className ?? ""}`}>
-                  {c.render ? c.render(item) : String((item as Record<string, unknown>)[c.chave] ?? "")}
-                </td>
+                <th key={c.chave} className="py-2 px-3 font-medium">
+                  {c.cabecalho}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {dados.map((item) => (
+              <tr key={chaveLinha(item)} className="border-b border-slate-50 last:border-0">
+                {colunas.map((c) => (
+                  <td key={c.chave} className={`py-3 px-3 text-slate-800 break-words ${c.className ?? ""}`}>
+                    {c.render ? c.render(item) : String((item as Record<string, unknown>)[c.chave] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

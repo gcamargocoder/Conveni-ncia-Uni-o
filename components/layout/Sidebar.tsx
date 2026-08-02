@@ -32,7 +32,6 @@ interface GrupoMenu {
   itens: ItemMenu[];
 }
 
-// PDV primeiro de propósito — é a página que fica mais aberta no dia a dia.
 const GRUPOS: GrupoMenu[] = [
   {
     rotulo: "Operação diária",
@@ -91,27 +90,34 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
           ${colapsada ? "md:w-[72px]" : "md:w-64"}
         `}
       >
-        <Link href="/pdv" className="flex items-center gap-3 h-16 px-4 border-b border-slate-100 shrink-0">
-          <Image
-            src="/logo-auto-posto-uniao.jpeg"
-            alt="Auto Posto União"
-            width={32}
-            height={32}
-            className="rounded-md shrink-0"
-          />
-          {!colapsada && <span className="font-semibold text-sm text-slate-900 truncate">Auto Posto União</span>}
+        <div className="flex items-center gap-2 h-16 px-4 border-b border-slate-100 shrink-0">
+          <Link href="/pdv" className="flex items-center gap-3 min-w-0 flex-1">
+            <Image
+              src="/logo-auto-posto-uniao.jpeg"
+              alt="Auto Posto União"
+              width={32}
+              height={32}
+              className="rounded-md shrink-0"
+            />
+            {!colapsada && <span className="font-semibold text-sm text-slate-900 truncate">Auto Posto União</span>}
+          </Link>
+
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onFecharMobile();
-            }}
+            onClick={onToggleColapsar}
+            aria-label={colapsada ? "Expandir menu" : "Retrair menu"}
+            className="hidden md:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 shrink-0 transition-colors"
+          >
+            {colapsada ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={onFecharMobile}
             aria-label="Fechar menu"
-            className="ml-auto md:hidden text-slate-400"
+            className="md:hidden text-slate-400 shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
-        </Link>
+        </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-5">
           {GRUPOS.map((grupo) => (
@@ -154,13 +160,13 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
           ))}
         </nav>
 
-        <button
-          onClick={onToggleColapsar}
-          aria-label={colapsada ? "Expandir menu" : "Retrair menu"}
-          className="hidden md:flex items-center justify-center h-10 border-t border-slate-100 text-slate-400 hover:text-slate-600 shrink-0"
+        <div
+          title="Desenvolvido por GC-Sys"
+          className="flex items-center gap-2 h-12 px-4 border-t border-slate-100 shrink-0 text-slate-400"
         >
-          {colapsada ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
+          <img src="/logos/gc-sys-logo-96.png" alt="GC-Sys" className="w-5 h-5 rounded shrink-0" />
+          {!colapsada && <span className="text-xs truncate">Desenvolvido por GC-Sys</span>}
+        </div>
       </aside>
     </>
   );
