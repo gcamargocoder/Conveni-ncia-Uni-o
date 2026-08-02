@@ -9,12 +9,12 @@ export default async function EstoquePage() {
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
-      <header>
+      <header className="no-print">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Estoque</h1>
         <p className="text-slate-500 text-sm">Entradas, perdas, ajustes e inventário</p>
       </header>
 
-      <Card semPadding>
+      <Card semPadding className="print:border-0 print:shadow-none">
         <ListaEstoque estoque={estoque} />
       </Card>
     </main>

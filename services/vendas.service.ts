@@ -10,6 +10,7 @@ export interface DadosVenda {
   forma_pagamento: FormaPagamento;
   itens: ItemCarrinho[];
   dispositivo?: string;
+  cliente_id?: string | null;
 }
 
 export interface ResultadoRegistrarVenda {
@@ -33,6 +34,7 @@ export async function registrarVenda(dados: DadosVenda): Promise<ResultadoRegist
       quantidade: i.quantidade,
       preco_unitario: i.preco_unitario,
     })),
+    p_cliente_id: dados.cliente_id ?? null,
   });
 
   const dados_retorno = unwrap(resultado, "Erro ao registrar venda") as { id: string; ja_existia: boolean };
@@ -51,6 +53,7 @@ export interface VendaCompleta {
   total: number;
   forma_pagamento: string;
   cancelada: boolean;
+  funcionario_nome: string;
   itens: ItemVendaDetalhado[];
 }
 
@@ -59,7 +62,7 @@ export async function buscarVendaCompleta(vendaId: string): Promise<VendaComplet
 
   const resultadoVenda = await supabase
     .from("vendas")
-    .select("id, created_at, total, forma_pagamento, cancelada")
+    .select("id, created_at, total, forma_pagamento, cancelada, funcionarios(nome)")
     .eq("id", vendaId)
     .single();
 
@@ -71,9 +74,11 @@ export async function buscarVendaCompleta(vendaId: string): Promise<VendaComplet
     .eq("venda_id", vendaId);
 
   const itens = unwrap(resultadoItens, "Erro ao buscar itens da venda");
+  const { funcionarios, ...dadosVenda } = resultadoVenda.data as any;
 
   return {
-    ...resultadoVenda.data,
+    ...dadosVenda,
+    funcionario_nome: funcionarios?.nome ?? "—",
     itens: (itens ?? []).map((i: any) => ({
       produto_nome: i.produtos?.nome ?? "Produto removido",
       quantidade: i.quantidade,

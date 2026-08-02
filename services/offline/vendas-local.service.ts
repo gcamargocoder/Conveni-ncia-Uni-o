@@ -11,6 +11,7 @@ export interface DadosVendaLocal {
   formaPagamento: FormaPagamento;
   funcionarioId: string;
   funcionarioNome: string;
+  clienteId?: string | null;
 }
 
 export interface ResultadoVendaLocal {
@@ -19,18 +20,6 @@ export interface ResultadoVendaLocal {
   erro?: string;
 }
 
-/**
- * Grava a venda inteiramente no banco local — nenhuma chamada de rede
- * acontece aqui (regra da Fase 3: nenhuma venda vai para a nuvem ainda).
- * Tudo dentro de UMA transação Dexie: venda, itens, decremento de
- * estoque, item na fila de sincronização e limpeza do carrinho. Se
- * qualquer parte falhar, o Dexie desfaz tudo automaticamente — nunca
- * existe venda gravada sem item, ou item sem baixa de estoque.
- *
- * O UUID da venda é gerado AQUI, uma vez só, e reaproveitado como o
- * mesmo id do item da fila — quando a fase de sincronização enviar
- * isso ao servidor, reenviar o mesmo id nunca duplica.
- */
 export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<ResultadoVendaLocal> {
   const inicioMs = Date.now();
   const vendaId = gerarUuid();
@@ -72,11 +61,10 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
   try {
     const db = getOfflineDB();
 
-    // Dupla validação (Etapa 8.2) — a tela já valida antes de deixar o
-    // operador chegar até aqui, mas essa é a barreira de verdade: se
-    // por qualquer motivo (estado desatualizado, corrida entre duas
-    // abas) uma quantidade acima do disponível chegar até aqui, a
-    // venda é bloqueada agora, antes de gravar qualquer coisa.
+    if (dados.formaPagamento === "fiado" && !dados.clienteId) {
+      return { sucesso: false, erro: "Venda fiado exige um cliente selecionado." };
+    }
+
     for (const item of dados.itens) {
       const estoqueAtual = await db.estoque_local.get(item.produto_id);
       const disponivel = estoqueAtual?.quantidade_atual ?? 0;
@@ -105,10 +93,6 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
         await db.vendas_locais.put(venda);
         await db.itens_venda_locais.bulkPut(itensLocais);
 
-        // Baixa de estoque local. Chegou até aqui só porque a
-        // validação acima (antes da transação) já confirmou que há
-        // estoque suficiente — não deveria ficar negativo em uso
-        // normal, mas o cálculo continua sendo feito por segurança.
         for (const item of dados.itens) {
           const atual = await db.estoque_local.get(item.produto_id);
           await db.estoque_local.put({
@@ -130,6 +114,7 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
             quantidade: i.quantidade,
             preco_unitario: i.preco_unitario,
           })),
+          cliente_id: dados.clienteId ?? null,
         };
 
         await db.fila_sincronizacao.put({

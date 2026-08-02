@@ -45,7 +45,7 @@ export function InstalarAppBotao() {
 
   if (sistemaOperacional === "ios" && !podeInstalarNativo) {
     return (
-      <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-40 rounded-xl bg-white border border-slate-200 shadow-elevated p-4 flex flex-col gap-2 animate-slide-up">
+      <div className="no-print fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-40 rounded-xl bg-white border border-slate-200 shadow-elevated p-4 flex flex-col gap-2 animate-slide-up">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-semibold text-slate-900">Instalar o aplicativo</p>
           <button onClick={dispensar} aria-label="Fechar" className="text-slate-400 hover:text-slate-600">
@@ -63,7 +63,7 @@ export function InstalarAppBotao() {
   if (!promptEvento) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-40 rounded-xl bg-white border border-slate-200 shadow-elevated p-4 flex items-center gap-3 animate-slide-up">
+    <div className="no-print fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-40 rounded-xl bg-white border border-slate-200 shadow-elevated p-4 flex items-center gap-3 animate-slide-up">
       <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
         <Download className="w-5 h-5 text-brand-700" />
       </div>

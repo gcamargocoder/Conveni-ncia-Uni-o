@@ -38,14 +38,13 @@ export function IndicadorConexao() {
   const texto = status === "offline" ? "Offline" : sincronizando ? `Sincronizando (${pendentes})` : "Online";
 
   return (
-    <div className="fixed top-4 right-4 z-40">
-      <button
-        onClick={() => setAberto((a) => !a)}
-        className={`flex items-center gap-1.5 rounded-full pl-2.5 pr-3 py-1.5 text-xs font-medium shadow-card transition-colors ${cores}`}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full ${corPonto}`} />
-        {texto}
-      </button>
+    <div className="no-print fixed top-4 right-4 z-40">      <button
+      onClick={() => setAberto((a) => !a)}
+      className={`flex items-center gap-1.5 rounded-full pl-2.5 pr-3 py-1.5 text-xs font-medium shadow-card transition-colors ${cores}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${corPonto}`} />
+      {texto}
+    </button>
 
       {aberto && (
         <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white shadow-elevated p-4 animate-slide-up">

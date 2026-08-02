@@ -25,17 +25,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar
-        colapsada={colapsada}
-        onToggleColapsar={alternarColapsar}
-        abertaMobile={abertaMobile}
-        onFecharMobile={() => setAbertaMobile(false)}
-      />
+      <div className="no-print">
+        <Sidebar
+          colapsada={colapsada}
+          onToggleColapsar={alternarColapsar}
+          abertaMobile={abertaMobile}
+          onFecharMobile={() => setAbertaMobile(false)}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="md:hidden sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-slate-200 bg-white shrink-0">          <button onClick={() => setAbertaMobile(true)} aria-label="Abrir menu">
-          <Menu className="w-5 h-5 text-slate-600" />
-        </button>
+        <div className="no-print md:hidden sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-slate-200 bg-white shrink-0">
+          <button onClick={() => setAbertaMobile(true)} aria-label="Abrir menu">
+            <Menu className="w-5 h-5 text-slate-600" />
+          </button>
           <Image
             src="/logo-auto-posto-uniao.jpeg"
             alt="Auto Posto União"

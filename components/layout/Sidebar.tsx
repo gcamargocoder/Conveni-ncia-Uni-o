@@ -6,9 +6,11 @@ import { usePathname } from "next/navigation";
 import {
   ShoppingCart,
   Boxes,
+  Receipt,
   Tags,
   Truck,
   Users,
+  Contact2,
   LayoutDashboard,
   FileBarChart2,
   History,
@@ -30,12 +32,14 @@ interface GrupoMenu {
   itens: ItemMenu[];
 }
 
+// PDV primeiro de propósito — é a página que fica mais aberta no dia a dia.
 const GRUPOS: GrupoMenu[] = [
   {
     rotulo: "Operação diária",
     itens: [
-      { href: "/pdv", titulo: "Vender", icone: ShoppingCart },
+      { href: "/pdv", titulo: "Venda", icone: ShoppingCart },
       { href: "/estoque", titulo: "Estoque", icone: Boxes },
+      { href: "/contas-receber", titulo: "Contas a Receber", icone: Receipt },
     ],
   },
   {
@@ -44,6 +48,7 @@ const GRUPOS: GrupoMenu[] = [
       { href: "/produtos", titulo: "Produtos", icone: Tags },
       { href: "/fornecedores", titulo: "Fornecedores", icone: Truck },
       { href: "/funcionarios", titulo: "Funcionários", icone: Users },
+      { href: "/clientes", titulo: "Clientes", icone: Contact2 },
     ],
   },
   {

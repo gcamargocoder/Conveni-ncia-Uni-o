@@ -11,9 +11,11 @@ import {
   Boxes,
   Tags,
   FileBarChart2,
+  HandCoins,
 } from "lucide-react";
 import { buscarResumoDashboard } from "@/services/dashboard.service";
 import { listarHistorico } from "@/services/historico.service";
+import { listarContasPendentes } from "@/services/contas-receber.service";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -31,22 +33,25 @@ function formatarMoeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// Força renderização dinâmica — sem isso, o Next.js estava gerando
-// esta página UMA VEZ no momento do build (dado congelado daquele
-// instante, igual para todo visitante) em vez de buscar o dado real a
-// cada acesso. Descoberto ao investigar um erro de build; era um bug
-// real, silencioso, presente desde o início do projeto.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [resumo, historico] = await Promise.all([buscarResumoDashboard(), listarHistorico(7)]);
+  const seteDiasAtras = new Date();
+  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+  seteDiasAtras.setHours(0, 0, 0, 0);
 
-  // Ticket médio: computado aqui na apresentação, sem tocar em
-  // nenhum serviço — a Etapa 7 proíbe alterar regra de negócio.
+  const [resumo, historico, contasPendentes] = await Promise.all([
+    buscarResumoDashboard(),
+    listarHistorico(seteDiasAtras, new Date()),
+    listarContasPendentes(),
+  ]);
+
   const ticketMedio =
     resumo.quantidadeVendasHoje > 0 ? resumo.faturamentoHoje / resumo.quantidadeVendasHoje : 0;
 
   const ultimasMovimentacoes = historico.slice(0, 5);
+  const totalFiadoPendente = contasPendentes.reduce((s, c) => s + c.saldo_atual, 0);
+  const maisAntigas = contasPendentes.slice(0, 5);
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-6">
@@ -103,6 +108,43 @@ export default async function DashboardPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <HandCoins className="w-4 h-4 text-brand-700" />
+                <h2 className="text-sm font-semibold text-slate-700">Fiado pendente</h2>
+              </div>
+              <Link href="/contas-receber" className="text-xs font-medium text-brand-700 hover:underline">
+                Ver todas
+              </Link>
+            </div>
+            {contasPendentes.length === 0 ? (
+              <EmptyState icone={HandCoins} titulo="Nenhuma conta em aberto" />
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between border-b border-slate-100 pb-3 mb-3">
+                  <span className="text-slate-500 text-sm">Total a receber</span>
+                  <span className="text-2xl font-bold text-slate-900 tabular-nums">
+                    {formatarMoeda(totalFiadoPendente)}
+                  </span>
+                </div>
+                <ul className="flex flex-col gap-2.5">
+                  {maisAntigas.map((c) => (
+                    <li key={c.id} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-700">{c.cliente_nome}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-slate-500 font-medium">{formatarMoeda(c.saldo_atual)}</span>
+                        <Badge variante={c.dias_em_aberto > 30 ? "danger" : "warning"}>
+                          {c.dias_em_aberto} dia(s)
+                        </Badge>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </Card>
         </div>

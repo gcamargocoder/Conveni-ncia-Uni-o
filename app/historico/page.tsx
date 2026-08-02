@@ -1,50 +1,59 @@
-import { History as HistoryIcon, ShoppingCart, Boxes } from "lucide-react";
 import { listarHistorico } from "@/services/historico.service";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { FiltroPeriodoHistorico } from "@/components/historico/FiltroPeriodoHistorico";
+import { HistoricoLista } from "@/components/historico/HistoricoLista";
 
 export const dynamic = "force-dynamic";
 
-export default async function HistoricoPage() {
-  const eventos = await listarHistorico(7);
+const DIAS_POR_PRESET: Record<string, number> = { hoje: 0, "7dias": 7, "30dias": 30 };
+
+export default async function HistoricoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; de?: string; ate?: string }>;
+}) {
+  const { periodo: periodoParam, de, ate } = await searchParams;
+  const periodo = periodoParam ?? "7dias";
+
+  let inicio: Date;
+  let fim: Date;
+
+  if (periodo === "personalizado" && de && ate) {
+    inicio = new Date(`${de}T00:00:00`);
+    fim = new Date(`${ate}T23:59:59`);
+  } else {
+    const dias = DIAS_POR_PRESET[periodo] ?? 7;
+    fim = new Date();
+    inicio = new Date();
+    inicio.setDate(inicio.getDate() - dias);
+    inicio.setHours(0, 0, 0, 0);
+  }
+
+  const eventos = await listarHistorico(inicio, fim);
+  const rotuloPeriodo = calcularRotuloPeriodo(periodo, de, ate);
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-6">
-      <header>
+      <header className="no-print">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Histórico de Operações</h1>
-        <p className="text-slate-500 text-sm">Últimos 7 dias</p>
+        <p className="text-slate-500 text-sm">Vendas e movimentações de estoque</p>
       </header>
 
-      <Card semPadding>
-        {eventos.length === 0 ? (
-          <EmptyState icone={HistoryIcon} titulo="Nenhuma operação no período" />
-        ) : (
-          <ul className="flex flex-col divide-y divide-slate-50 px-5 py-2">
-            {eventos.map((e) => {
-              const Icone = e.tipo === "venda" ? ShoppingCart : Boxes;
-              return (
-                <li key={`${e.tipo}-${e.id}`} className="flex items-start gap-3 py-3">
-                  <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
-                    <Icone className="w-4 h-4 text-brand-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-3">
-                      <p className="text-slate-800">{e.descricao}</p>
-                      <p className="text-slate-400 text-xs whitespace-nowrap shrink-0">
-                        {new Date(e.created_at).toLocaleString("pt-BR")}
-                      </p>
-                    </div>
-                    <p className="text-slate-500 text-sm">
-                      {e.funcionario_nome}
-                      {e.dispositivo && ` · ${e.dispositivo}`}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+      <div className="no-print">
+        <FiltroPeriodoHistorico periodoAtual={periodo} deAtual={de} ateAtual={ate} />
+      </div>
+
+      <HistoricoLista eventos={eventos} rotuloPeriodo={rotuloPeriodo} />
     </main>
   );
+}
+
+function calcularRotuloPeriodo(periodo: string, de?: string, ate?: string): string {
+  if (periodo === "hoje") return "Hoje";
+  if (periodo === "7dias") return "Últimos 7 dias";
+  if (periodo === "30dias") return "Últimos 30 dias";
+  if (periodo === "personalizado" && de && ate) {
+    const formatar = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR");
+    return `${formatar(de)} até ${formatar(ate)}`;
+  }
+  return "Últimos 7 dias";
 }

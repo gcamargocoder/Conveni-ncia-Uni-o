@@ -1,6 +1,6 @@
 import { BaseEntity } from "./base";
 
-export type FormaPagamento = "dinheiro" | "debito" | "credito" | "pix";
+export type FormaPagamento = "dinheiro" | "debito" | "credito" | "pix" | "fiado";
 
 export interface ProdutoParaVenda {
   produto_id: string;
@@ -12,7 +12,7 @@ export interface ProdutoParaVenda {
 export interface ItemVenda {
   produto_id: string;
   quantidade: number;
-  preco_unitario: number; // registrado no momento da venda (histórico)
+  preco_unitario: number;
 }
 
 export interface Venda extends BaseEntity {

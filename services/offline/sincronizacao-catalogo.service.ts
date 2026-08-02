@@ -1,4 +1,4 @@
-import { getOfflineDB, ProdutoLocal, CategoriaLocal, EstoqueLocal, FuncionarioLocal } from "./db";
+import { getOfflineDB, ProdutoLocal, CategoriaLocal, EstoqueLocal, FuncionarioLocal, ClienteLocal } from "./db";
 import { obterConfiguracao, definirConfiguracao } from "./configuracao-local.service";
 import { registrarEventoSincronizacao } from "./auditoria-sincronizacao.service";
 import { buscarAlteracoesCatalogoAction, AlteracoesCatalogo } from "@/lib/offline-sync/actions";
@@ -11,6 +11,7 @@ export interface ContagemSincronizacao {
   categorias: number;
   estoque: number;
   funcionarios: number;
+  clientes: number;
 }
 
 export async function aplicarAlteracoesCatalogoLocal(
@@ -52,17 +53,27 @@ export async function aplicarAlteracoesCatalogoLocal(
     updated_at: f.updated_at,
   }));
 
+  const clientesLocal: ClienteLocal[] = alteracoes.clientes.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    telefone: c.telefone,
+    ativo: c.ativo && !c.deleted_at,
+    updated_at: c.updated_at,
+  }));
+
   await db.transaction(
     "rw",
     db.produtos_local,
     db.categorias_local,
     db.estoque_local,
     db.funcionarios_local,
+    db.clientes_local,
     async () => {
       if (produtosLocal.length) await db.produtos_local.bulkPut(produtosLocal);
       if (categoriasLocal.length) await db.categorias_local.bulkPut(categoriasLocal);
       if (estoqueLocal.length) await db.estoque_local.bulkPut(estoqueLocal);
       if (funcionariosLocal.length) await db.funcionarios_local.bulkPut(funcionariosLocal);
+      if (clientesLocal.length) await db.clientes_local.bulkPut(clientesLocal);
     }
   );
 
@@ -71,6 +82,7 @@ export async function aplicarAlteracoesCatalogoLocal(
     categorias: categoriasLocal.length,
     estoque: estoqueLocal.length,
     funcionarios: funcionariosLocal.length,
+    clientes: clientesLocal.length,
   };
 }
 
@@ -88,15 +100,14 @@ export async function sincronizarCatalogo(): Promise<ResultadoSincronizacaoCatal
     const carimboAnterior = await obterConfiguracao(CHAVE_CARIMBO);
     const alteracoes = await buscarAlteracoesCatalogoAction(carimboAnterior ?? null);
     const contagem = await aplicarAlteracoesCatalogoLocal(alteracoes);
+    const total =
+      contagem.produtos + contagem.categorias + contagem.estoque + contagem.funcionarios + contagem.clientes;
 
     await definirConfiguracao(CHAVE_CARIMBO, alteracoes.timestampServidor);
-    await definirConfiguracao(
-      CHAVE_ULTIMA_QTD,
-      String(contagem.produtos + contagem.categorias + contagem.estoque + contagem.funcionarios)
-    );
+    await definirConfiguracao(CHAVE_ULTIMA_QTD, String(total));
 
     await registrarEventoSincronizacao("fim", {
-      registros_atualizados: contagem.produtos + contagem.categorias + contagem.estoque + contagem.funcionarios,
+      registros_atualizados: total,
       duracao_ms: Date.now() - inicioMs,
     });
 

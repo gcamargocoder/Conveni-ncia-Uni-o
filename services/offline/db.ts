@@ -26,6 +26,14 @@ export interface FuncionarioLocal {
   updated_at: string;
 }
 
+export interface ClienteLocal {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  ativo: boolean;
+  updated_at: string;
+}
+
 export interface EstoqueLocal {
   produto_id: string;
   quantidade_atual: number;
@@ -112,7 +120,6 @@ export type TipoEventoAuditoriaLocal =
   | "sync_fila_fim"
   | "sync_item_sucesso"
   | "sync_item_erro"
-  // Etapa 8.2 — validação de estoque no PDV
   | "estoque_insuficiente_tentativa"
   | "estoque_ajuste_automatico"
   | "venda_bloqueada_estoque";
@@ -156,6 +163,7 @@ class ConvenienceOfflineDB extends Dexie {
   produtos_local!: Table<ProdutoLocal, string>;
   categorias_local!: Table<CategoriaLocal, string>;
   funcionarios_local!: Table<FuncionarioLocal, string>;
+  clientes_local!: Table<ClienteLocal, string>;
   estoque_local!: Table<EstoqueLocal, string>;
   fila_sincronizacao!: Table<ItemFilaSincronizacao, string>;
   configuracoes_local!: Table<ConfiguracaoLocal, string>;
@@ -206,6 +214,25 @@ class ConvenienceOfflineDB extends Dexie {
       produtos_local: "id, nome, codigo_barras, categoria_id, ativo",
       categorias_local: "id, nome, ativo",
       funcionarios_local: "id, nome, cargo, ativo",
+      estoque_local: "produto_id",
+      fila_sincronizacao: "id, tipo, status, criado_em",
+      configuracoes_local: "chave",
+      papel_dispositivo: "chave",
+      eventos_sincronizacao: "id, tipo, timestamp",
+      vendas_locais: "id, status, criado_em",
+      itens_venda_locais: "id, venda_id",
+      carrinho_local: "produto_id",
+      auditoria_local: "id, tipo, venda_id, timestamp",
+      logs_tecnicos: "id, categoria, nivel, timestamp",
+    });
+    // v5 (Etapa 8.7): clientes sincronizados localmente — necessário
+    // pra venda fiado funcionar offline (buscar/selecionar cliente
+    // sem depender de rede, mesmo princípio já usado com funcionários).
+    this.version(5).stores({
+      produtos_local: "id, nome, codigo_barras, categoria_id, ativo",
+      categorias_local: "id, nome, ativo",
+      funcionarios_local: "id, nome, cargo, ativo",
+      clientes_local: "id, nome, ativo",
       estoque_local: "produto_id",
       fila_sincronizacao: "id, tipo, status, criado_em",
       configuracoes_local: "chave",

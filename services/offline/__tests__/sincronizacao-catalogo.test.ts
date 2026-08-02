@@ -19,6 +19,7 @@ function alteracoes(over: Partial<AlteracoesCatalogo>): AlteracoesCatalogo {
     categorias: [],
     estoque: [],
     funcionarios: [],
+    clientes: [],
     timestampServidor: new Date().toISOString(),
     ...over,
   };
@@ -68,7 +69,6 @@ describe("aplicarAlteracoesCatalogoLocal — sincronização incremental", () =>
       })
     );
 
-    // segunda sincronização: só p2 mudou
     await aplicarAlteracoesCatalogoLocal(
       alteracoes({ produtos: [produtoServidor({ id: "p2", nome: "Suco", preco_venda: 6 })] })
     );
@@ -77,8 +77,8 @@ describe("aplicarAlteracoesCatalogoLocal — sincronização incremental", () =>
     const p1 = produtos.find((p) => p.id === "p1");
     const p2 = produtos.find((p) => p.id === "p2");
 
-    expect(p1?.preco_venda).toBe(2); // não foi tocado na segunda sync
-    expect(p2?.preco_venda).toBe(6); // atualizado
+    expect(p1?.preco_venda).toBe(2);
+    expect(p2?.preco_venda).toBe(6);
   });
 
   it("reflete atualização de preço no produto já sincronizado", async () => {
@@ -96,12 +96,32 @@ describe("aplicarAlteracoesCatalogoLocal — sincronização incremental", () =>
   it("reflete atualização de estoque", async () => {
     await aplicarAlteracoesCatalogoLocal(
       alteracoes({
-        estoque: [{ produto_id: "p1", nome: "Água", estoque_minimo: 5, quantidade_atual: 20 }],
+        estoque: [
+          {
+            produto_id: "p1",
+            nome: "Água",
+            codigo_barras: null,
+            categoria_nome: null,
+            fornecedor_nome: null,
+            estoque_minimo: 5,
+            quantidade_atual: 20,
+          },
+        ],
       })
     );
     await aplicarAlteracoesCatalogoLocal(
       alteracoes({
-        estoque: [{ produto_id: "p1", nome: "Água", estoque_minimo: 5, quantidade_atual: 12 }],
+        estoque: [
+          {
+            produto_id: "p1",
+            nome: "Água",
+            codigo_barras: null,
+            categoria_nome: null,
+            fornecedor_nome: null,
+            estoque_minimo: 5,
+            quantidade_atual: 12,
+          },
+        ],
       })
     );
 
@@ -122,7 +142,6 @@ describe("aplicarAlteracoesCatalogoLocal — produto desativado", () => {
     );
 
     expect(await listarProdutosLocal()).toHaveLength(0);
-    // continua fisicamente no banco local (histórico), só não aparece nas listagens
     const db = getOfflineDB();
     expect(await db.produtos_local.get("p1")).toBeDefined();
   });
@@ -139,9 +158,6 @@ describe("aplicarAlteracoesCatalogoLocal — produto desativado", () => {
 });
 
 describe("buscarProdutosLocalPorTermo — funcionamento sem internet", () => {
-  // Nenhuma chamada de rede acontece nesta função — ela só lê o Dexie
-  // já sincronizado. Este teste roda sem qualquer mock de servidor
-  // disponível, provando que a busca não depende de conexão.
   it("busca por nome (parcial, sem diferenciar maiúsculas)", async () => {
     await aplicarAlteracoesCatalogoLocal(
       alteracoes({ produtos: [produtoServidor({ id: "p1", nome: "Refrigerante Cola" })] })

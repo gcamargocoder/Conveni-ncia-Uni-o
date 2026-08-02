@@ -20,3 +20,58 @@
     @apply outline-none ring-2 ring-brand-600 ring-offset-2 ring-offset-white;
   }
 }
+
+/*
+ * Etapa 8.4 — impressão profissional (Histórico, e reaproveitável por
+ * qualquer tela futura que precise imprimir).
+ *
+ * Estratégia: ".no-print" some ao imprimir (sidebar, menus, botões,
+ * widgets flutuantes); ".print-only" só aparece ao imprimir (fica
+ * "display: none" na tela normal — nunca chega a ser calculado/visível
+ * até a impressão ser pedida de verdade).
+ */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font-size: 9px;
+      color: #64748b;
+    }
+  }
+
+  body {
+    background: white;
+    color: #0f172a;
+    padding: 0 !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+}
+
+@media not print {
+  .print-only {
+    display: none;
+  }
+}

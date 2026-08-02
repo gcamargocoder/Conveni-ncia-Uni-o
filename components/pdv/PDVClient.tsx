@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Banknote, Smartphone, CreditCard, Landmark, ShoppingCart } from "lucide-react";
+import { Banknote, Smartphone, CreditCard, Landmark, HandCoins, ShoppingCart, User, X } from "lucide-react";
 import { ProdutoBusca } from "@/components/pdv/ProdutoBusca";
 import { CarrinhoView } from "@/components/pdv/CarrinhoView";
 import { PinInput } from "@/components/auth/PinInput";
 import { ReciboTermico } from "@/components/pdv/ReciboTermico";
 import { EstoqueInsuficienteModal, PendenciaEstoque } from "@/components/pdv/EstoqueInsuficienteModal";
+import { SelecionarClienteModal } from "@/components/pdv/SelecionarClienteModal";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -18,6 +19,7 @@ import { salvarCarrinhoLocal, carregarCarrinhoLocal, limparCarrinhoLocal } from 
 import { obterEstoqueLocalPorProduto } from "@/services/offline/estoque-local.service";
 import { registrarEventoAuditoriaLocal } from "@/services/offline/auditoria-local.service";
 import { validarPinLocalmente } from "@/services/offline/pin-local.service";
+import type { ClienteLocal } from "@/services/offline/db";
 import { FormaPagamento, ProdutoParaVenda } from "@/types/venda";
 import { VendaCompleta } from "@/services/vendas.service";
 
@@ -26,6 +28,7 @@ const FORMAS: { valor: FormaPagamento; rotulo: string; icone: typeof Banknote }[
   { valor: "pix", rotulo: "PIX", icone: Smartphone },
   { valor: "debito", rotulo: "Débito", icone: CreditCard },
   { valor: "credito", rotulo: "Crédito", icone: Landmark },
+  { valor: "fiado", rotulo: "Fiado", icone: HandCoins },
 ];
 
 interface PendenciaEstoqueComProduto extends PendenciaEstoque {
@@ -35,6 +38,8 @@ interface PendenciaEstoqueComProduto extends PendenciaEstoque {
 export function PDVClient() {
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("dinheiro");
+  const [clienteSelecionado, setClienteSelecionado] = useState<ClienteLocal | null>(null);
+  const [selecionandoCliente, setSelecionandoCliente] = useState(false);
   const [pedindoPin, setPedindoPin] = useState(false);
   const [pedindoCancelamento, setPedindoCancelamento] = useState(false);
   const [pendenciaEstoque, setPendenciaEstoque] = useState<PendenciaEstoqueComProduto | null>(null);
@@ -43,6 +48,7 @@ export function PDVClient() {
   const { mostrar } = useToast();
 
   const total = calcularTotal(carrinho);
+  const fiadoSemCliente = formaPagamento === "fiado" && !clienteSelecionado;
 
   useEffect(() => {
     carregarCarrinhoLocal().then((itens) => {
@@ -56,7 +62,21 @@ export function PDVClient() {
     salvarCarrinhoLocal(carrinho);
   }, [carrinho]);
 
+  function aoTrocarFormaPagamento(forma: FormaPagamento) {
+    setFormaPagamento(forma);
+    if (forma === "fiado" && !clienteSelecionado) {
+      setSelecionandoCliente(true);
+    }
+    if (forma !== "fiado") {
+      setClienteSelecionado(null);
+    }
+  }
+
   async function finalizarComPin(pin: string) {
+    if (fiadoSemCliente) {
+      throw new Error("Selecione um cliente antes de finalizar uma venda fiado.");
+    }
+
     const auth = await validarPinLocalmente(pin);
     if (!auth.sucesso || !auth.funcionario) {
       throw new Error(auth.erro ?? "PIN inválido.");
@@ -67,6 +87,7 @@ export function PDVClient() {
       formaPagamento,
       funcionarioId: auth.funcionario.id,
       funcionarioNome: auth.funcionario.nome,
+      clienteId: clienteSelecionado?.id ?? null,
     });
 
     if (!resultado.sucesso || !resultado.vendaId) {
@@ -79,6 +100,7 @@ export function PDVClient() {
       total,
       forma_pagamento: formaPagamento,
       cancelada: false,
+      funcionario_nome: auth.funcionario.nome,
       itens: carrinho.map((i) => ({
         produto_nome: i.nome,
         quantidade: i.quantidade,
@@ -86,6 +108,8 @@ export function PDVClient() {
       })),
     });
     setCarrinho([]);
+    setClienteSelecionado(null);
+    setFormaPagamento("dinheiro");
     mostrar("success", "Venda salva localmente.");
 
     processarFilaSincronizacao();
@@ -94,6 +118,8 @@ export function PDVClient() {
   async function confirmarCancelamento() {
     await limparCarrinhoLocal();
     setCarrinho([]);
+    setClienteSelecionado(null);
+    setFormaPagamento("dinheiro");
     setPedindoCancelamento(false);
     mostrar("info", "Venda cancelada.");
   }
@@ -221,7 +247,7 @@ export function PDVClient() {
                   return (
                     <button
                       key={f.valor}
-                      onClick={() => setFormaPagamento(f.valor)}
+                      onClick={() => aoTrocarFormaPagamento(f.valor)}
                       className={`w-full flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg border text-sm font-medium transition-colors ${
                         ativo
                           ? "bg-brand-700 text-white border-brand-700"
@@ -236,7 +262,38 @@ export function PDVClient() {
               </div>
             </div>
 
-            <Button tamanho="lg" larguraTotal disabled={carrinho.length === 0} onClick={() => setPedindoPin(true)}>
+            {formaPagamento === "fiado" && (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs font-medium text-slate-500">Cliente</p>
+                {clienteSelecionado ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <User className="w-4 h-4 text-brand-700 shrink-0" />
+                      <span className="text-sm font-medium text-slate-800 truncate">{clienteSelecionado.nome}</span>
+                    </div>
+                    <button
+                      onClick={() => setClienteSelecionado(null)}
+                      aria-label="Remover cliente selecionado"
+                      className="text-slate-400 hover:text-slate-600 shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <Button variante="secondary" tamanho="sm" onClick={() => setSelecionandoCliente(true)}>
+                    <User className="w-3.5 h-3.5" />
+                    Selecionar cliente
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <Button
+              tamanho="lg"
+              larguraTotal
+              disabled={carrinho.length === 0 || fiadoSemCliente}
+              onClick={() => setPedindoPin(true)}
+            >
               Finalizar venda
             </Button>
 
@@ -276,6 +333,15 @@ export function PDVClient() {
         pendencia={pendenciaEstoque}
         onAjustar={aplicarAjusteDeEstoque}
         onCancelar={() => setPendenciaEstoque(null)}
+      />
+
+      <SelecionarClienteModal
+        aberto={selecionandoCliente}
+        onFechar={() => setSelecionandoCliente(false)}
+        onSelecionar={(cliente) => {
+          setClienteSelecionado(cliente);
+          setSelecionandoCliente(false);
+        }}
       />
     </main>
   );

@@ -5,6 +5,9 @@ import { DadosMovimentacao } from "@/lib/estoque/movimentacao";
 export interface EstoqueAtual {
   produto_id: string;
   nome: string;
+  codigo_barras: string | null;
+  categoria_nome: string | null;
+  fornecedor_nome: string | null;
   estoque_minimo: number;
   quantidade_atual: number;
 }
@@ -21,24 +24,19 @@ export async function registrarMovimentacao(dados: DadosMovimentacao): Promise<v
 export async function listarEstoqueAtual(): Promise<EstoqueAtual[]> {
   const supabase = await createSupabaseServerClient();
   const resultado = await supabase
-    .from("estoque_atual") // view criada na Etapa 2, corrigida na 0005 e 0013
-    .select("produto_id, nome, estoque_minimo, quantidade_atual")
+    .from("estoque_atual")
+    .select("produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual")
     .order("nome")
     .limit(LIMITE_LISTAGEM);
 
   return unwrap(resultado, "Erro ao consultar estoque");
 }
 
-/**
- * Filtra no banco usando a coluna calculada `abaixo_do_minimo`
- * (migration 0013) — antes, trazia TODO o estoque para o navegador
- * e filtrava em JavaScript, desperdiçando tráfego com um catálogo grande.
- */
 export async function listarProdutosAbaixoDoMinimo(): Promise<EstoqueAtual[]> {
   const supabase = await createSupabaseServerClient();
   const resultado = await supabase
     .from("estoque_atual")
-    .select("produto_id, nome, estoque_minimo, quantidade_atual")
+    .select("produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual")
     .eq("abaixo_do_minimo", true)
     .order("nome")
     .limit(LIMITE_LISTAGEM);
@@ -46,13 +44,6 @@ export async function listarProdutosAbaixoDoMinimo(): Promise<EstoqueAtual[]> {
   return unwrap(resultado, "Erro ao consultar estoque abaixo do mínimo");
 }
 
-/**
- * Usada pela sincronização do catálogo local. Estoque não tem
- * updated_at próprio (é sempre calculado a partir do histórico de
- * movimentações) — então "o que mudou desde X" é descoberto pelas
- * movimentações recentes, não por uma coluna de data no saldo em si.
- * `desde = null` (primeira sincronização) traz o estoque inteiro.
- */
 export async function listarEstoqueAlteradoDesde(desde: Date | null): Promise<EstoqueAtual[]> {
   if (!desde) {
     return listarEstoqueAtual();
@@ -72,7 +63,7 @@ export async function listarEstoqueAlteradoDesde(desde: Date | null): Promise<Es
 
   const resultado = await supabase
     .from("estoque_atual")
-    .select("produto_id, nome, estoque_minimo, quantidade_atual")
+    .select("produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual")
     .in("produto_id", idsUnicos);
 
   return unwrap(resultado, "Erro ao sincronizar estoque");
