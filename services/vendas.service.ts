@@ -57,6 +57,8 @@ export interface VendaCompleta {
   cliente_nome?: string | null;
   cliente_telefone?: string | null;
   desconto?: number | null;
+  valor_recebido?: number | null;
+  troco?: number | null;
   itens: ItemVendaDetalhado[];
 }
 

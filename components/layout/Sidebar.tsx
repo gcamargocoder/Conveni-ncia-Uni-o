@@ -8,6 +8,7 @@ import {
   Boxes,
   Receipt,
   Tags,
+  Layers,
   Truck,
   Users,
   Contact2,
@@ -15,6 +16,7 @@ import {
   FileBarChart2,
   History,
   RefreshCw,
+  DatabaseBackup,
   ChevronLeft,
   ChevronRight,
   X,
@@ -45,6 +47,7 @@ const GRUPOS: GrupoMenu[] = [
     rotulo: "Cadastros",
     itens: [
       { href: "/produtos", titulo: "Produtos", icone: Tags },
+      { href: "/categorias", titulo: "Categorias", icone: Layers },
       { href: "/fornecedores", titulo: "Fornecedores", icone: Truck },
       { href: "/funcionarios", titulo: "Funcionários", icone: Users },
       { href: "/clientes", titulo: "Clientes", icone: Contact2 },
@@ -57,6 +60,7 @@ const GRUPOS: GrupoMenu[] = [
       { href: "/relatorios", titulo: "Relatórios", icone: FileBarChart2 },
       { href: "/historico", titulo: "Histórico", icone: History },
       { href: "/sincronizacao", titulo: "Sincronização", icone: RefreshCw },
+      { href: "/backup", titulo: "Backup", icone: DatabaseBackup },
     ],
   },
 ];
@@ -137,19 +141,17 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
                       href={item.href}
                       onClick={onFecharMobile}
                       title={colapsada ? item.titulo : undefined}
-                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        ativo
+                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${ativo
                           ? "bg-brand-50 text-brand-700 font-semibold"
                           : "text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900"
-                      }`}
+                        }`}
                     >
                       {ativo && (
                         <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-brand-700" />
                       )}
                       <Icone
-                        className={`w-4 h-4 shrink-0 transition-colors ${
-                          ativo ? "text-brand-700" : "text-slate-400 group-hover:text-slate-600"
-                        }`}
+                        className={`w-4 h-4 shrink-0 transition-colors ${ativo ? "text-brand-700" : "text-slate-400 group-hover:text-slate-600"
+                          }`}
                       />
                       {!colapsada && item.titulo}
                     </Link>
@@ -164,8 +166,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
           title="Desenvolvido por GC-Sys"
           className="flex items-center gap-2 h-14 px-4 border-t border-slate-100 shrink-0 text-slate-400"
         >
-          <img src="/logos/gc-sys-icone-96.png" alt="GC-Sys" className="w-8 h-8 rounded shrink-0" />
-          {!colapsada && <span className="text-xs truncate">Desenvolvido por GC-Sys</span>}
+          <img src="/logos/gc-sys-icone-transparente-96.png" alt="GC-Sys" className="w-8 h-8 shrink-0" />          {!colapsada && <span className="text-xs truncate">Desenvolvido por GC-Sys</span>}
         </div>
       </aside>
     </>

@@ -9,6 +9,7 @@ import { ReciboTermico } from "@/components/pdv/ReciboTermico";
 import { EstoqueInsuficienteModal, PendenciaEstoque } from "@/components/pdv/EstoqueInsuficienteModal";
 import { SelecionarClienteModal } from "@/components/pdv/SelecionarClienteModal";
 import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -40,6 +41,7 @@ export function PDVClient() {
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("dinheiro");
   const [clienteSelecionado, setClienteSelecionado] = useState<ClienteLocal | null>(null);
   const [selecionandoCliente, setSelecionandoCliente] = useState(false);
+  const [valorRecebido, setValorRecebido] = useState("");
   const [pedindoPin, setPedindoPin] = useState(false);
   const [pedindoCancelamento, setPedindoCancelamento] = useState(false);
   const [pendenciaEstoque, setPendenciaEstoque] = useState<PendenciaEstoqueComProduto | null>(null);
@@ -49,6 +51,8 @@ export function PDVClient() {
 
   const total = calcularTotal(carrinho);
   const fiadoSemCliente = formaPagamento === "fiado" && !clienteSelecionado;
+  const valorRecebidoNumero = Number(valorRecebido.replace(",", ".")) || 0;
+  const troco = valorRecebidoNumero - total;
 
   useEffect(() => {
     carregarCarrinhoLocal().then((itens) => {
@@ -66,6 +70,9 @@ export function PDVClient() {
     setFormaPagamento(forma);
     if (forma === "fiado" && !clienteSelecionado) {
       setSelecionandoCliente(true);
+    }
+    if (forma !== "dinheiro") {
+      setValorRecebido("");
     }
   }
 
@@ -105,6 +112,8 @@ export function PDVClient() {
       funcionario_nome: auth.funcionario.nome,
       cliente_nome: clienteSelecionado?.nome ?? null,
       cliente_telefone: clienteSelecionado?.telefone ?? null,
+      valor_recebido: formaPagamento === "dinheiro" && valorRecebido ? valorRecebidoNumero : null,
+      troco: formaPagamento === "dinheiro" && valorRecebido ? troco : null,
       itens: carrinho.map((i) => ({
         produto_nome: i.nome,
         quantidade: i.quantidade,
@@ -114,6 +123,7 @@ export function PDVClient() {
     setCarrinho([]);
     setClienteSelecionado(null);
     setFormaPagamento("dinheiro");
+    setValorRecebido("");
     mostrar("success", "Venda salva localmente.");
 
     processarFilaSincronizacao();
@@ -124,6 +134,7 @@ export function PDVClient() {
     setCarrinho([]);
     setClienteSelecionado(null);
     setFormaPagamento("dinheiro");
+    setValorRecebido("");
     setPedindoCancelamento(false);
     mostrar("info", "Venda cancelada.");
   }
@@ -295,6 +306,29 @@ export function PDVClient() {
                 })}
               </div>
             </div>
+
+            {formaPagamento === "dinheiro" && (
+              <div className="flex flex-col gap-1.5">
+                <Input
+                  rotulo="Valor recebido em dinheiro (opcional)"
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={valorRecebido}
+                  onChange={(e) => setValorRecebido(e.target.value)}
+                />
+                {valorRecebido && (
+                  <div
+                    className={`flex justify-between items-baseline px-1 ${
+                      troco < 0 ? "text-danger-600" : "text-slate-900"
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{troco < 0 ? "Falta:" : "Troco:"}</span>
+                    <span className="text-xl font-bold tabular-nums">R$ {Math.abs(troco).toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <Button
               tamanho="lg"

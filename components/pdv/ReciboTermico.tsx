@@ -32,7 +32,7 @@ function ConteudoCupom({ venda }: ConteudoCupomProps) {
   const subtotal = venda.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0);
   const desconto = venda.desconto ?? 0;
 
-  const mostrarCliente = venda.forma_pagamento === "fiado" && venda.cliente_nome;
+  const mostrarCliente = !!venda.cliente_nome;
 
   return (
     <div className="font-mono text-sm leading-relaxed text-black">
@@ -68,7 +68,9 @@ function ConteudoCupom({ venda }: ConteudoCupomProps) {
 
       {mostrarCliente && (
         <div className="border-2 border-black rounded mt-2 p-2">
-          <p className="text-xs font-bold uppercase tracking-wide mb-1">Cliente (fiado)</p>
+          <p className="text-xs font-bold uppercase tracking-wide mb-1">
+            {venda.forma_pagamento === "fiado" ? "Cliente (fiado)" : "Cliente"}
+          </p>
           <p className="text-sm font-semibold">{venda.cliente_nome}</p>
           {venda.cliente_telefone && <p className="text-xs">{venda.cliente_telefone}</p>}
         </div>
@@ -115,8 +117,28 @@ function ConteudoCupom({ venda }: ConteudoCupomProps) {
         <span>{ROTULOS_PAGAMENTO[venda.forma_pagamento] ?? venda.forma_pagamento}</span>
       </div>
 
+      {venda.forma_pagamento === "dinheiro" && venda.valor_recebido != null && (
+        <div className="flex flex-col gap-0.5 text-xs mt-1">
+          <div className="flex justify-between">
+            <span className="font-semibold">Valor recebido:</span>
+            <span>R$ {venda.valor_recebido.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-sm">
+            <span>Troco:</span>
+            <span>R$ {(venda.troco ?? 0).toFixed(2)}</span>
+          </div>
+        </div>
+      )}
+
       {venda.cancelada && (
         <p className="text-center font-bold mt-3 border-2 border-black py-1.5 text-base">VENDA CANCELADA</p>
+      )}
+
+      {mostrarCliente && (
+        <div className="mt-4">
+          <div className="border-t border-black w-full" />
+          <p className="text-center text-[11px] mt-1">Assinatura do cliente</p>
+        </div>
       )}
 
       <div className="border-t-2 border-dashed border-black my-2" />

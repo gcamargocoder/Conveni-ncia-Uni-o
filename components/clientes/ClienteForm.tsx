@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { useToast } from "@/components/ui/ToastProvider";
+import { sincronizarCatalogo } from "@/services/offline/sincronizacao-catalogo.service";
 
 export interface ClienteFormProps {
   clienteId?: string;
@@ -53,6 +54,7 @@ export function ClienteForm({ clienteId, dadosIniciais, onSucesso }: ClienteForm
 
     if (!emEdicao) setDados(VAZIO);
     mostrar("success", emEdicao ? "Cliente atualizado." : "Cliente cadastrado.");
+    sincronizarCatalogo();
     onSucesso?.();
   }
 

@@ -6,6 +6,7 @@ import { Plus, Camera } from "lucide-react";
 import { DadosProduto, precoVendaAbaixoDoCusto, PADRAO_ESTOQUE_MINIMO } from "@/lib/produtos/validacao";
 import { criarProdutoAction, atualizarProdutoAction } from "@/lib/produtos/actions";
 import { criarCategoriaAction } from "@/lib/produtos/categorias-actions";
+import { criarFornecedorAction } from "@/lib/produtos/fornecedores-actions";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -41,7 +42,7 @@ const VAZIO: DadosProduto = {
 
 export function ProdutoForm({
   categorias: categoriasIniciais,
-  fornecedores,
+  fornecedores: fornecedoresIniciais,
   produtoId,
   dadosIniciais,
   onSucesso,
@@ -49,6 +50,9 @@ export function ProdutoForm({
   const [categorias, setCategorias] = useState(categoriasIniciais);
   const [novaCategoria, setNovaCategoria] = useState("");
   const [criandoCategoria, setCriandoCategoria] = useState(false);
+  const [fornecedores, setFornecedores] = useState(fornecedoresIniciais);
+  const [novoFornecedor, setNovoFornecedor] = useState("");
+  const [criandoFornecedor, setCriandoFornecedor] = useState(false);
   const [dados, setDados] = useState<DadosProduto>(dadosIniciais ?? VAZIO);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
@@ -149,18 +153,47 @@ export function ProdutoForm({
         </div>
       </div>
 
-      <Select
-        rotulo="Fornecedor (opcional)"
-        value={dados.fornecedor_id ?? ""}
-        onChange={(e) => setDados({ ...dados, fornecedor_id: e.target.value || null })}
-      >
-        <option value="">Nenhum</option>
-        {fornecedores.map((f) => (
-          <option key={f.id} value={f.id}>
-            {f.nome}
-          </option>
-        ))}
-      </Select>
+      <div className="flex flex-col gap-1.5">
+        <Select
+          rotulo="Fornecedor (opcional)"
+          value={dados.fornecedor_id ?? ""}
+          onChange={(e) => setDados({ ...dados, fornecedor_id: e.target.value || null })}
+        >
+          <option value="">Nenhum</option>
+          {fornecedores.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.nome}
+            </option>
+          ))}
+        </Select>
+
+        <div className="flex gap-2 mt-1">
+          <input
+            placeholder="Novo fornecedor..."
+            className="flex-1 h-9 px-3 rounded-lg text-sm border border-slate-300 focus:border-brand-600"
+            value={novoFornecedor}
+            onChange={(e) => setNovoFornecedor(e.target.value)}
+          />
+          <Button
+            variante="secondary"
+            tamanho="sm"
+            disabled={criandoFornecedor || novoFornecedor.trim().length < 2}
+            onClick={async () => {
+              setCriandoFornecedor(true);
+              const resultado = await criarFornecedorAction({ nome: novoFornecedor.trim() });
+              setCriandoFornecedor(false);
+              if (resultado.sucesso && resultado.fornecedor) {
+                setFornecedores((f) => [...f, resultado.fornecedor!]);
+                setDados((d) => ({ ...d, fornecedor_id: resultado.fornecedor!.id }));
+                setNovoFornecedor("");
+              }
+            }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Adicionar
+          </Button>
+        </div>
+      </div>
 
       <div className="flex gap-3">
         <Input

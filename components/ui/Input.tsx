@@ -1,20 +1,61 @@
-import { InputHTMLAttributes, forwardRef, useId, FocusEvent } from "react";
+import { InputHTMLAttributes, forwardRef, useId, useState, useEffect, useRef, FocusEvent, ChangeEvent } from "react";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   rotulo?: string;
   erro?: string;
 }
 
+function normalizarDecimal(bruto: string): string {
+  const comPontoNoLugarDaVirgula = bruto.replace(",", ".");
+  const apenasDigitosEPonto = comPontoNoLugarDaVirgula.replace(/[^0-9.]/g, "");
+  const partes = apenasDigitosEPonto.split(".");
+  return partes.length > 2 ? `${partes[0]}.${partes.slice(1).join("")}` : apenasDigitosEPonto;
+}
+
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ rotulo, erro, className = "", id, type, onFocus, ...props }, ref) => {
+  ({ rotulo, erro, className = "", id, type, value, onFocus, onBlur, onChange, ...props }, ref) => {
     const idGerado = useId();
     const inputId = id ?? idGerado;
+    const ehNumerico = type === "number";
+    const focado = useRef(false);
+
+    const [buffer, setBuffer] = useState(() => (value != null ? String(value) : ""));
+
+    useEffect(() => {
+      if (!ehNumerico) return;
+      if (!focado.current) {
+        setBuffer(value != null ? String(value) : "");
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, ehNumerico]);
 
     function aoFocar(evento: FocusEvent<HTMLInputElement>) {
-      if (type === "number") {
-        evento.target.select();
+      focado.current = true;
+      if (ehNumerico) {
+        const alvo = evento.target;
+        requestAnimationFrame(() => alvo.select());
       }
       onFocus?.(evento);
+    }
+
+    function aoDesfocar(evento: FocusEvent<HTMLInputElement>) {
+      focado.current = false;
+      if (ehNumerico) {
+        setBuffer(value != null ? String(value) : "");
+      }
+      onBlur?.(evento);
+    }
+
+    function aoMudar(evento: ChangeEvent<HTMLInputElement>) {
+      if (!ehNumerico) {
+        onChange?.(evento);
+        return;
+      }
+
+      const normalizado = normalizarDecimal(evento.target.value);
+      setBuffer(normalizado);
+      evento.target.value = normalizado;
+      onChange?.(evento);
     }
 
     return (
@@ -27,8 +68,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
-          type={type}
+          type={ehNumerico ? "text" : type}
+          inputMode={ehNumerico ? "decimal" : undefined}
+          value={ehNumerico ? buffer : value}
           onFocus={aoFocar}
+          onBlur={aoDesfocar}
+          onChange={aoMudar}
           className={`
             w-full h-11 px-3 rounded-lg text-base bg-white
             border ${erro ? "border-danger-600" : "border-slate-300"}

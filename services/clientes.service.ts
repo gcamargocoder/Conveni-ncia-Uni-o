@@ -57,3 +57,19 @@ export async function desativarCliente(id: string): Promise<void> {
 
   unwrap(resultado, "Erro ao desativar cliente");
 }
+
+export async function excluirCliente(id: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+
+  const vendasVinculadas = await supabase.from("vendas").select("id").eq("cliente_id", id).limit(1);
+  const temVendas = unwrap(vendasVinculadas, "Erro ao verificar vendas do cliente");
+
+  if (temVendas.length > 0) {
+    throw new Error(
+      'Este cliente já aparece em vendas registradas (histórico) e não pode ser excluído — use "Desativar" para escondê-lo das listas sem perder o histórico.'
+    );
+  }
+
+  const resultado = await supabase.from("clientes").delete().eq("id", id);
+  unwrap(resultado, "Erro ao excluir cliente");
+}

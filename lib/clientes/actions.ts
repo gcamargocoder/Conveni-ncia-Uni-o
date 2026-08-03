@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { criarCliente, atualizarCliente, desativarCliente } from "@/services/clientes.service";
+import { criarCliente, atualizarCliente, desativarCliente, excluirCliente } from "@/services/clientes.service";
 import { validarCliente, DadosCliente } from "@/lib/clientes/validacao";
 import type { Cliente } from "@/types/cliente";
 
@@ -41,6 +41,16 @@ export async function atualizarClienteAction(id: string, dados: DadosCliente): P
 export async function desativarClienteAction(id: string): Promise<ResultadoAcaoCliente> {
   try {
     await desativarCliente(id);
+    revalidatePath("/clientes");
+    return { sucesso: true };
+  } catch (e) {
+    return { sucesso: false, erroGeral: (e as Error).message };
+  }
+}
+
+export async function excluirClienteAction(id: string): Promise<ResultadoAcaoCliente> {
+  try {
+    await excluirCliente(id);
     revalidatePath("/clientes");
     return { sucesso: true };
   } catch (e) {

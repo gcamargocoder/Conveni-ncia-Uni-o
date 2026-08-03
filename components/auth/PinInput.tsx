@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { NumericKeypad } from "@/components/ui/NumericKeypad";
 import { validarPinAction } from "@/lib/auth/actions";
 import { useOperadorTurno } from "@/hooks/useOperadorTurno";
@@ -9,16 +9,6 @@ const PIN_LENGTH = 4;
 
 interface PinInputProps {
   onSucesso?: () => void;
-  /**
-   * modo "turno" (padrão): valida o PIN aqui mesmo e define o operador
-   * do turno global — usado na tela de identificação inicial.
-   *
-   * modo "confirmacao": NÃO valida nem seta operador global. Apenas
-   * devolve o PIN digitado via onPinCompleto para que quem chamou
-   * (ex: uma Server Action de estoque/venda) faça sua própria validação
-   * e checagem de permissão. Evita que confirmar uma operação sensível
-   * troque silenciosamente quem está "no turno".
-   */
   modo?: "turno" | "confirmacao";
   onPinCompleto?: (pin: string) => void | Promise<void>;
 }
@@ -69,9 +59,28 @@ export function PinInput({ onSucesso, modo = "turno", onPinCompleto }: PinInputP
     if (novoPin.length === PIN_LENGTH) confirmar(novoPin);
   }
 
+  const aoTecla = useCallback(
+    (evento: KeyboardEvent) => {
+      if (verificando) return;
+      if (evento.key >= "0" && evento.key <= "9") {
+        adicionarDigito(evento.key);
+      } else if (evento.key === "Backspace") {
+        setPin((p) => p.slice(0, -1));
+      } else if (evento.key === "Escape") {
+        setPin("");
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [verificando, pin]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", aoTecla);
+    return () => window.removeEventListener("keydown", aoTecla);
+  }, [aoTecla]);
+
   return (
     <div className="flex flex-col items-center gap-6">
-      {/* bolinhas grandes mostram progresso sem exibir o PIN na tela */}
       <div className="flex gap-3">
         {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div

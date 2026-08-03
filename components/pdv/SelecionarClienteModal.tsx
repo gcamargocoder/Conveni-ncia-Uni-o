@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import { buscarClientesLocalPorTermo } from "@/services/offline/clientes-local.service";
+import { sincronizarCatalogo } from "@/services/offline/sincronizacao-catalogo.service";
 import { criarClienteAction } from "@/lib/clientes/actions";
 import type { ClienteLocal } from "@/services/offline/db";
 
@@ -81,6 +82,12 @@ export function SelecionarClienteModal({ aberto, onFechar, onSelecionar }: Selec
       return;
     }
 
+    // Seleciona na hora — não espera a próxima sincronização de
+    // catálogo trazer esse cliente novo pro banco local (essa venda
+    // já funciona). Dispara a sincronização mesmo assim, sem travar a
+    // tela, pra esse cliente já aparecer na BUSCA de uma próxima
+    // venda também, sem precisar cadastrar de novo.
+    sincronizarCatalogo();
     onSelecionar({
       id: resultado.cliente.id,
       nome: resultado.cliente.nome,
