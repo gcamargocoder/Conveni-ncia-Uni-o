@@ -162,9 +162,9 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
 
         <div
           title="Desenvolvido por GC-Sys"
-          className="flex items-center gap-2 h-12 px-4 border-t border-slate-100 shrink-0 text-slate-400"
+          className="flex items-center gap-2 h-14 px-4 border-t border-slate-100 shrink-0 text-slate-400"
         >
-          <img src="/logos/gc-sys-logo-96.png" alt="GC-Sys" className="w-5 h-5 rounded shrink-0" />
+          <img src="/logos/gc-sys-icone-96.png" alt="GC-Sys" className="w-8 h-8 rounded shrink-0" />
           {!colapsada && <span className="text-xs truncate">Desenvolvido por GC-Sys</span>}
         </div>
       </aside>

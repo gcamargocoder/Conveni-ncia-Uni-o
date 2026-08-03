@@ -45,12 +45,12 @@ export default async function DashboardPage() {
   seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
   seteDiasAtras.setHours(0, 0, 0, 0);
 
-  const [resumo, historico, contasPendentes, resumoFinanceiro] = await Promise.all([
+  const [resumo, historico, contasPendentes] = await Promise.all([
     buscarResumoDashboard(),
     listarHistorico(seteDiasAtras, new Date()),
     listarContasPendentes(),
-    buscarResumoFinanceiro(),
   ]);
+  const resumoFinanceiro = await buscarResumoFinanceiro(contasPendentes);
 
   const ticketMedio =
     resumo.quantidadeVendasHoje > 0 ? resumo.faturamentoHoje / resumo.quantidadeVendasHoje : 0;

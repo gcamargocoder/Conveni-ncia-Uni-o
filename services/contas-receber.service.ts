@@ -22,7 +22,7 @@ export async function criarContaReceber(dados: DadosContaReceber): Promise<Conta
   return unwrap(resultado, "Erro ao criar conta a receber");
 }
 
-export async function listarContas(status?: StatusConta): Promise<ContaReceberComCliente[]> {
+export async function listarContas(status?: StatusConta, clienteId?: string): Promise<ContaReceberComCliente[]> {
   const supabase = await createSupabaseServerClient();
   let query = supabase
     .from("contas_receber")
@@ -32,6 +32,9 @@ export async function listarContas(status?: StatusConta): Promise<ContaReceberCo
 
   if (status) {
     query = query.eq("status", status);
+  }
+  if (clienteId) {
+    query = query.eq("cliente_id", clienteId);
   }
 
   const resultado = await query;
@@ -217,8 +220,7 @@ export async function buscarDetalheCliente(clienteId: string): Promise<DetalheCl
   const resultadoCliente = await supabase.from("clientes").select("*").eq("id", clienteId).single();
   if (resultadoCliente.error || !resultadoCliente.data) return null;
 
-  const todasContas = await listarContas();
-  const contasDoCliente = todasContas.filter((c) => c.cliente_id === clienteId);
+  const contasDoCliente = await listarContas(undefined, clienteId);
 
   const comprasEmAberto = contasDoCliente.filter((c) => c.status !== "QUITADA");
   const comprasQuitadas = contasDoCliente.filter((c) => c.status === "QUITADA");
@@ -266,8 +268,9 @@ export interface ResumoFinanceiroContasReceber {
   valorRecebidoHoje: number;
 }
 
-export async function buscarResumoFinanceiro(): Promise<ResumoFinanceiroContasReceber> {
-  const pendentes = await listarContasPendentes();
+export async function buscarResumoFinanceiro(
+  pendentes: ContaReceberPendente[]
+): Promise<ResumoFinanceiroContasReceber> {
   const valorTotalEmAberto = pendentes.reduce((s, c) => s + c.saldo_atual, 0);
   const clientesUnicos = new Set(pendentes.map((c) => c.cliente_id));
   const quantidadeContasVencidas = pendentes.filter((c) => c.dias_em_aberto > 30).length;
