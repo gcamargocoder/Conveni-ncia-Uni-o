@@ -1,5 +1,7 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { Prisma } from "@prisma/client";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
+import { buscarCliente } from "./clientes.service";
 import { ContaReceber, ContaReceberComCliente, Recebimento, StatusConta } from "@/types/conta-receber";
 import { Cliente } from "@/types/cliente";
 
@@ -12,41 +14,31 @@ export interface DadosContaReceber {
 }
 
 export async function criarContaReceber(dados: DadosContaReceber): Promise<ContaReceber> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("contas_receber")
-    .insert({ ...dados, saldo_atual: dados.valor_original, status: "ABERTA" })
-    .select()
-    .single();
-
-  return unwrap(resultado, "Erro ao criar conta a receber");
+  return executar(
+    () => prisma.contaReceber.create({ data: { ...dados, saldo_atual: dados.valor_original, status: "ABERTA" } }),
+    "Erro ao criar conta a receber"
+  );
 }
 
 export async function listarContas(status?: StatusConta, clienteId?: string): Promise<ContaReceberComCliente[]> {
-  const supabase = await createSupabaseServerClient();
-  let query = supabase
-    .from("contas_receber")
-    .select("*, clientes(nome, telefone), vendas(created_at)")
-    .order("created_at", { ascending: false })
-    .limit(LIMITE_LISTAGEM);
+  const linhas = await executar<any[]>(
+    () =>
+      prisma.contaReceber.findMany({
+        include: { cliente: { select: { nome: true, telefone: true } }, venda: { select: { created_at: true } } },
+        where: { ...(status && { status }), ...(clienteId && { cliente_id: clienteId }) },
+        orderBy: { created_at: "desc" },
+        take: LIMITE_LISTAGEM,
+      }),
+    "Erro ao listar contas a receber"
+  );
 
-  if (status) {
-    query = query.eq("status", status);
-  }
-  if (clienteId) {
-    query = query.eq("cliente_id", clienteId);
-  }
-
-  const resultado = await query;
-  const linhas = unwrap(resultado, "Erro ao listar contas a receber");
-
-  return (linhas as any[]).map((l) => {
-    const { clientes, vendas, ...conta } = l;
+  return linhas.map((l) => {
+    const { cliente, venda, ...conta } = l;
     return {
       ...conta,
-      cliente_nome: clientes?.nome ?? "—",
-      cliente_telefone: clientes?.telefone ?? null,
-      venda_created_at: vendas?.created_at ?? conta.created_at,
+      cliente_nome: cliente?.nome ?? "—",
+      cliente_telefone: cliente?.telefone ?? null,
+      venda_created_at: venda?.created_at ?? conta.created_at,
     };
   });
 }
@@ -58,41 +50,47 @@ export interface DetalheContaReceber {
 }
 
 export async function buscarConta(id: string): Promise<DetalheContaReceber | null> {
-  const supabase = await createSupabaseServerClient();
+  let registro: any;
+  try {
+    registro = await executar<any>(
+      () =>
+        prisma.contaReceber.findUnique({
+          where: { id },
+          include: { cliente: true, venda: { select: { created_at: true } } },
+        }),
+      "Erro ao buscar conta a receber"
+    );
+  } catch {
+    return null;
+  }
 
-  const resultadoConta = await supabase
-    .from("contas_receber")
-    .select("*, clientes(*), vendas(created_at)")
-    .eq("id", id)
-    .single();
+  if (!registro) return null;
 
-  if (resultadoConta.error || !resultadoConta.data) return null;
-
-  const { clientes, vendas, ...conta } = resultadoConta.data as any;
+  const { cliente, venda, ...conta } = registro;
 
   const pagamentos = await listarPagamentos(id);
 
   return {
     conta: {
       ...conta,
-      cliente_nome: clientes?.nome ?? "—",
-      cliente_telefone: clientes?.telefone ?? null,
-      venda_created_at: vendas?.created_at ?? conta.created_at,
+      cliente_nome: cliente?.nome ?? "—",
+      cliente_telefone: cliente?.telefone ?? null,
+      venda_created_at: venda?.created_at ?? conta.created_at,
     },
-    cliente: clientes,
+    cliente,
     pagamentos,
   };
 }
 
 export async function listarPagamentos(contaReceberId: string): Promise<Recebimento[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("recebimentos")
-    .select("*")
-    .eq("conta_receber_id", contaReceberId)
-    .order("created_at", { ascending: false });
-
-  return unwrap(resultado, "Erro ao listar pagamentos");
+  return executar(
+    () =>
+      prisma.recebimento.findMany({
+        where: { conta_receber_id: contaReceberId },
+        orderBy: { created_at: "desc" },
+      }),
+    "Erro ao listar pagamentos"
+  );
 }
 
 export interface DadosPagamento {
@@ -109,17 +107,41 @@ export interface ResultadoPagamento {
 }
 
 export async function registrarPagamento(dados: DadosPagamento): Promise<ResultadoPagamento> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.rpc("registrar_pagamento_conta", {
-    p_conta_receber_id: dados.contaReceberId,
-    p_valor: dados.valor,
-    p_forma_pagamento: dados.formaPagamento,
-    p_funcionario_id: dados.funcionarioId,
-    p_observacoes: dados.observacoes ?? null,
-  });
+  // Equivalente à antiga função SQL registrar_pagamento_conta: trava a conta,
+  // grava o recebimento e recalcula saldo/status numa única transação.
+  return executar(
+    () =>
+      prisma.$transaction(async (tx) => {
+        const [conta] = await tx.$queryRaw<{ saldo_atual: Prisma.Decimal }[]>`
+          SELECT saldo_atual FROM contas_receber WHERE id = ${dados.contaReceberId}::uuid FOR UPDATE`;
 
-  const retorno = unwrap(resultado, "Erro ao registrar pagamento") as { saldo_atual: number; status: StatusConta };
-  return { saldoAtual: retorno.saldo_atual, status: retorno.status };
+        if (!conta) throw new Error("Conta a receber não encontrada.");
+
+        const valor = new Prisma.Decimal(dados.valor);
+        if (valor.lte(0)) throw new Error("O valor do pagamento deve ser maior que zero.");
+        if (valor.gt(conta.saldo_atual)) throw new Error("O valor do pagamento é maior que o saldo da conta.");
+
+        await tx.recebimento.create({
+          data: {
+            conta_receber_id: dados.contaReceberId,
+            valor,
+            forma_pagamento: dados.formaPagamento,
+            funcionario_id: dados.funcionarioId,
+            observacoes: dados.observacoes ?? null,
+          },
+        });
+
+        const novoSaldo = conta.saldo_atual.minus(valor);
+        const status: StatusConta = novoSaldo.isZero() ? "QUITADA" : "PARCIAL";
+        await tx.contaReceber.update({
+          where: { id: dados.contaReceberId },
+          data: { saldo_atual: novoSaldo, status },
+        });
+
+        return { saldoAtual: novoSaldo, status };
+      }),
+    "Erro ao registrar pagamento"
+  );
 }
 
 export interface ContaReceberPendente extends ContaReceberComCliente {
@@ -215,10 +237,8 @@ export interface DetalheCliente {
 }
 
 export async function buscarDetalheCliente(clienteId: string): Promise<DetalheCliente | null> {
-  const supabase = await createSupabaseServerClient();
-
-  const resultadoCliente = await supabase.from("clientes").select("*").eq("id", clienteId).single();
-  if (resultadoCliente.error || !resultadoCliente.data) return null;
+  const cliente = await buscarCliente(clienteId);
+  if (!cliente) return null;
 
   const contasDoCliente = await listarContas(undefined, clienteId);
 
@@ -250,7 +270,7 @@ export async function buscarDetalheCliente(clienteId: string): Promise<DetalheCl
   ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
   return {
-    cliente: resultadoCliente.data as Cliente,
+    cliente,
     comprasEmAberto,
     comprasQuitadas,
     pagamentos,
@@ -278,22 +298,20 @@ export async function buscarResumoFinanceiro(
     (c) => c.dias_em_aberto >= 16 && c.dias_em_aberto <= 30
   ).length;
 
-  const supabase = await createSupabaseServerClient();
   const inicioDoMes = new Date();
   inicioDoMes.setDate(1);
   inicioDoMes.setHours(0, 0, 0, 0);
   const inicioDoDia = new Date();
   inicioDoDia.setHours(0, 0, 0, 0);
 
-  const resultado = await supabase
-    .from("recebimentos")
-    .select("valor, created_at")
-    .gte("created_at", inicioDoMes.toISOString());
-
-  const pagamentosDoMes = unwrap(resultado, "Erro ao buscar recebimentos do mês") as {
-    valor: number;
-    created_at: string;
-  }[];
+  const pagamentosDoMes = await executar<{ valor: number; created_at: string }[]>(
+    () =>
+      prisma.recebimento.findMany({
+        select: { valor: true, created_at: true },
+        where: { created_at: { gte: inicioDoMes } },
+      }),
+    "Erro ao buscar recebimentos do mês"
+  );
 
   const valorRecebidoNoMes = pagamentosDoMes.reduce((s, p) => s + p.valor, 0);
   const valorRecebidoHoje = pagamentosDoMes

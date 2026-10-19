@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap, CODIGOS_POSTGRES } from "./supabase/query-helpers";
+import { prisma } from "./prisma/client";
+import { executar, CODIGOS_PRISMA } from "./prisma/query-helpers";
 import { Produto } from "@/types/produto";
 import { DadosProduto } from "@/lib/produtos/validacao";
 
@@ -7,15 +7,15 @@ const ERRO_CODIGO_BARRAS_DUPLICADO = "Já existe um produto com esse código de 
 const LIMITE_LISTAGEM = 500; // proteção contra carregar um catálogo gigante numa única resposta
 
 export async function listarProdutos(): Promise<Produto[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("produtos")
-    .select("*")
-    .is("deleted_at", null)
-    .order("nome")
-    .limit(LIMITE_LISTAGEM);
-
-  return unwrap(resultado, "Erro ao listar produtos");
+  return executar(
+    () =>
+      prisma.produto.findMany({
+        where: { deleted_at: null },
+        orderBy: { nome: "asc" },
+        take: LIMITE_LISTAGEM,
+      }),
+    "Erro ao listar produtos"
+  );
 }
 
 /**
@@ -26,54 +26,40 @@ export async function listarProdutos(): Promise<Produto[]> {
  * `desde = null` significa primeira sincronização (traz tudo).
  */
 export async function listarProdutosAlteradosDesde(desde: Date | null): Promise<Produto[]> {
-  const supabase = await createSupabaseServerClient();
-  let query = supabase.from("produtos").select("*").order("updated_at");
-
-  if (desde) {
-    query = query.gte("updated_at", desde.toISOString());
-  }
-
-  const resultado = await query.limit(LIMITE_LISTAGEM);
-  return unwrap(resultado, "Erro ao sincronizar produtos");
+  return executar(
+    () =>
+      prisma.produto.findMany({
+        where: desde ? { updated_at: { gte: desde } } : undefined,
+        orderBy: { updated_at: "asc" },
+        take: LIMITE_LISTAGEM,
+      }),
+    "Erro ao sincronizar produtos"
+  );
 }
 
 export async function buscarProdutoPorCodigoBarras(codigo: string): Promise<Produto | null> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("produtos")
-    .select("*")
-    .eq("codigo_barras", codigo)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  return unwrap(resultado, "Erro ao buscar produto");
+  return executar(
+    () => prisma.produto.findFirst({ where: { codigo_barras: codigo, deleted_at: null } }),
+    "Erro ao buscar produto"
+  );
 }
 
 export async function criarProduto(dados: DadosProduto): Promise<Produto> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.from("produtos").insert(dados).select().single();
-
-  return unwrap(resultado, "Erro ao criar produto", {
-    [CODIGOS_POSTGRES.VIOLACAO_UNICIDADE]: ERRO_CODIGO_BARRAS_DUPLICADO,
+  return executar(() => prisma.produto.create({ data: dados }), "Erro ao criar produto", {
+    [CODIGOS_PRISMA.VIOLACAO_UNICIDADE]: ERRO_CODIGO_BARRAS_DUPLICADO,
   });
 }
 
 export async function atualizarProduto(id: string, dados: Partial<DadosProduto>): Promise<Produto> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.from("produtos").update(dados).eq("id", id).select().single();
-
-  return unwrap(resultado, "Erro ao atualizar produto", {
-    [CODIGOS_POSTGRES.VIOLACAO_UNICIDADE]: ERRO_CODIGO_BARRAS_DUPLICADO,
+  return executar(() => prisma.produto.update({ where: { id }, data: dados }), "Erro ao atualizar produto", {
+    [CODIGOS_PRISMA.VIOLACAO_UNICIDADE]: ERRO_CODIGO_BARRAS_DUPLICADO,
   });
 }
 
 // Soft delete: nunca apagamos de verdade (princípio do documento mestre)
 export async function desativarProduto(id: string): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("produtos")
-    .update({ ativo: false, deleted_at: new Date().toISOString() })
-    .eq("id", id);
-
-  unwrap(resultado, "Erro ao desativar produto");
+  await executar(
+    () => prisma.produto.update({ where: { id }, data: { ativo: false, deleted_at: new Date() } }),
+    "Erro ao desativar produto"
+  );
 }

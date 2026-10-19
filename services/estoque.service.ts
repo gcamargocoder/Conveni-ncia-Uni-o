@@ -1,5 +1,6 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { Prisma } from "@prisma/client";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 import { DadosMovimentacao } from "@/lib/estoque/movimentacao";
 
 export interface EstoqueAtual {
@@ -14,34 +15,27 @@ export interface EstoqueAtual {
 
 const LIMITE_LISTAGEM = 1000;
 
-export async function registrarMovimentacao(dados: DadosMovimentacao): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.from("movimentacoes_estoque").insert(dados);
+const COLUNAS_ESTOQUE = Prisma.sql`produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual`;
 
-  unwrap(resultado, "Erro ao registrar movimentação");
+export async function registrarMovimentacao(dados: DadosMovimentacao): Promise<void> {
+  await executar(() => prisma.movimentacaoEstoque.create({ data: dados }), "Erro ao registrar movimentação");
 }
 
 export async function listarEstoqueAtual(): Promise<EstoqueAtual[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("estoque_atual")
-    .select("produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual")
-    .order("nome")
-    .limit(LIMITE_LISTAGEM);
-
-  return unwrap(resultado, "Erro ao consultar estoque");
+  return executar(
+    () => prisma.$queryRaw`
+      SELECT ${COLUNAS_ESTOQUE} FROM estoque_atual ORDER BY nome LIMIT ${LIMITE_LISTAGEM}`,
+    "Erro ao consultar estoque"
+  );
 }
 
 export async function listarProdutosAbaixoDoMinimo(): Promise<EstoqueAtual[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("estoque_atual")
-    .select("produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual")
-    .eq("abaixo_do_minimo", true)
-    .order("nome")
-    .limit(LIMITE_LISTAGEM);
-
-  return unwrap(resultado, "Erro ao consultar estoque abaixo do mínimo");
+  return executar(
+    () => prisma.$queryRaw`
+      SELECT ${COLUNAS_ESTOQUE} FROM estoque_atual
+      WHERE abaixo_do_minimo = true ORDER BY nome LIMIT ${LIMITE_LISTAGEM}`,
+    "Erro ao consultar estoque abaixo do mínimo"
+  );
 }
 
 export async function listarEstoqueAlteradoDesde(desde: Date | null): Promise<EstoqueAtual[]> {
@@ -49,22 +43,24 @@ export async function listarEstoqueAlteradoDesde(desde: Date | null): Promise<Es
     return listarEstoqueAtual();
   }
 
-  const supabase = await createSupabaseServerClient();
-  const movimentacoesRecentes = await supabase
-    .from("movimentacoes_estoque")
-    .select("produto_id")
-    .gte("created_at", desde.toISOString())
-    .limit(LIMITE_LISTAGEM);
+  const movimentacoesRecentes = await executar<{ produto_id: string }[]>(
+    () =>
+      prisma.movimentacaoEstoque.findMany({
+        where: { created_at: { gte: desde } },
+        select: { produto_id: true },
+        take: LIMITE_LISTAGEM,
+      }),
+    "Erro ao verificar movimentações recentes"
+  );
 
-  const produtosAlterados = unwrap(movimentacoesRecentes, "Erro ao verificar movimentações recentes");
-  const idsUnicos = Array.from(new Set(produtosAlterados.map((m) => m.produto_id)));
+  const idsUnicos = Array.from(new Set(movimentacoesRecentes.map((m) => m.produto_id)));
 
   if (idsUnicos.length === 0) return [];
 
-  const resultado = await supabase
-    .from("estoque_atual")
-    .select("produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual")
-    .in("produto_id", idsUnicos);
-
-  return unwrap(resultado, "Erro ao sincronizar estoque");
+  return executar(
+    () => prisma.$queryRaw`
+      SELECT ${COLUNAS_ESTOQUE} FROM estoque_atual
+      WHERE produto_id = ANY(${idsUnicos}::uuid[])`,
+    "Erro ao sincronizar estoque"
+  );
 }

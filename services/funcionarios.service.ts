@@ -1,22 +1,22 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 import { verificarPin, gerarHashPin } from "@/lib/auth/pin";
 import { Funcionario } from "@/types/funcionario";
 
 export async function autenticarPorPin(pin: string): Promise<Funcionario | null> {
-  const supabase = await createSupabaseServerClient();
+  let candidatos: Funcionario[];
+  try {
+    candidatos = await executar<Funcionario[]>(
+      () => prisma.funcionario.findMany({ where: { ativo: true, deleted_at: null } }),
+      "Erro ao autenticar"
+    );
+  } catch {
+    return null;
+  }
 
-  const resultado = await supabase
-    .from("funcionarios")
-    .select("*")
-    .eq("ativo", true)
-    .is("deleted_at", null);
-
-  if (resultado.error || !resultado.data) return null;
-
-  for (const funcionario of resultado.data) {
+  for (const funcionario of candidatos) {
     const confere = await verificarPin(pin, funcionario.pin_hash);
-    if (confere) return funcionario as Funcionario;
+    if (confere) return funcionario;
   }
 
   return null;
@@ -27,68 +27,59 @@ export async function criarFuncionario(input: {
   cargo: Funcionario["cargo"];
   pin: string;
 }): Promise<Funcionario> {
-  const supabase = await createSupabaseServerClient();
   const pin_hash = await gerarHashPin(input.pin);
 
-  const resultado = await supabase
-    .from("funcionarios")
-    .insert({ nome: input.nome, cargo: input.cargo, pin_hash })
-    .select()
-    .single();
-
-  return unwrap(resultado, "Erro ao criar funcionário");
+  return executar(
+    () => prisma.funcionario.create({ data: { nome: input.nome, cargo: input.cargo, pin_hash } }),
+    "Erro ao criar funcionário"
+  );
 }
 
 export async function listarFuncionariosAlteradosDesde(desde: Date | null): Promise<Funcionario[]> {
-  const supabase = await createSupabaseServerClient();
-  let query = supabase.from("funcionarios").select("*").order("updated_at");
-
-  if (desde) {
-    query = query.gte("updated_at", desde.toISOString());
-  }
-
-  const resultado = await query.limit(500);
-  return unwrap(resultado, "Erro ao sincronizar funcionários");
+  return executar(
+    () =>
+      prisma.funcionario.findMany({
+        where: desde ? { updated_at: { gte: desde } } : undefined,
+        orderBy: { updated_at: "asc" },
+        take: 500,
+      }),
+    "Erro ao sincronizar funcionários"
+  );
 }
 
 export async function listarFuncionarios(): Promise<Funcionario[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("funcionarios")
-    .select("*")
-    .is("deleted_at", null)
-    .order("nome")
-    .limit(500);
-
-  return unwrap(resultado, "Erro ao listar funcionários");
+  return executar(
+    () => prisma.funcionario.findMany({ where: { deleted_at: null }, orderBy: { nome: "asc" }, take: 500 }),
+    "Erro ao listar funcionários"
+  );
 }
 
 export async function buscarFuncionarioPorId(id: string): Promise<Funcionario | null> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.from("funcionarios").select("*").eq("id", id).single();
-  if (resultado.error || !resultado.data) return null;
-  return resultado.data as Funcionario;
+  try {
+    return await executar<Funcionario | null>(
+      () => prisma.funcionario.findUnique({ where: { id } }),
+      "Erro ao buscar funcionário"
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function atualizarFuncionario(
   id: string,
   dados: { nome?: string; cargo?: Funcionario["cargo"]; pin?: string }
 ): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  const atualizacoes: Record<string, unknown> = {};
+  const atualizacoes: { nome?: string; cargo?: string; pin_hash?: string } = {};
   if (dados.nome !== undefined) atualizacoes.nome = dados.nome;
   if (dados.cargo !== undefined) atualizacoes.cargo = dados.cargo;
   if (dados.pin !== undefined) atualizacoes.pin_hash = await gerarHashPin(dados.pin);
 
-  const resultado = await supabase.from("funcionarios").update(atualizacoes).eq("id", id);
-  unwrap(resultado, "Erro ao atualizar funcionário");
+  await executar(() => prisma.funcionario.update({ where: { id }, data: atualizacoes }), "Erro ao atualizar funcionário");
 }
 
 export async function excluirFuncionario(id: string): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("funcionarios")
-    .update({ deleted_at: new Date().toISOString(), ativo: false })
-    .eq("id", id);
-  unwrap(resultado, "Erro ao excluir funcionário");
+  await executar(
+    () => prisma.funcionario.update({ where: { id }, data: { deleted_at: new Date(), ativo: false } }),
+    "Erro ao excluir funcionário"
+  );
 }

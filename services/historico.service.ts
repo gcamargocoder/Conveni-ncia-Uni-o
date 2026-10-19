@@ -1,4 +1,5 @@
-import { createSupabaseServerClient } from "./supabase/server";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 
 export interface EventoHistorico {
   id: string;
@@ -36,33 +37,53 @@ const ROTULOS_TIPO: Record<string, string> = {
 const LIMITE_EVENTOS = 500;
 
 export async function listarHistorico(inicio: Date, fim: Date): Promise<EventoHistorico[]> {
-  const supabase = await createSupabaseServerClient();
+  const produtoSelecionado = { select: { nome: true, codigo_barras: true } } as const;
+  const funcionarioSelecionado = { select: { nome: true } } as const;
 
-  const [{ data: vendas }, { data: movimentacoes }] = await Promise.all([
-    supabase
-      .from("vendas")
-      .select("id, created_at, total, dispositivo, funcionarios(nome), itens_venda(produtos(nome, codigo_barras))")
-      .gte("created_at", inicio.toISOString())
-      .lte("created_at", fim.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(LIMITE_EVENTOS),
-    supabase
-      .from("movimentacoes_estoque")
-      .select(
-        "id, created_at, tipo, quantidade, dispositivo, observacao, funcionarios(nome), produtos(nome, codigo_barras)"
-      )
-      .neq("tipo", "venda")
-      .gte("created_at", inicio.toISOString())
-      .lte("created_at", fim.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(LIMITE_EVENTOS),
+  const [vendas, movimentacoes] = await Promise.all([
+    executar<any[]>(
+      () =>
+        prisma.venda.findMany({
+          select: {
+            id: true,
+            created_at: true,
+            total: true,
+            dispositivo: true,
+            funcionario: funcionarioSelecionado,
+            itens: { select: { produto: produtoSelecionado } },
+          },
+          where: { created_at: { gte: inicio, lte: fim } },
+          orderBy: { created_at: "desc" },
+          take: LIMITE_EVENTOS,
+        }),
+      "Erro ao listar vendas do histórico"
+    ),
+    executar<any[]>(
+      () =>
+        prisma.movimentacaoEstoque.findMany({
+          select: {
+            id: true,
+            created_at: true,
+            tipo: true,
+            quantidade: true,
+            dispositivo: true,
+            observacao: true,
+            funcionario: funcionarioSelecionado,
+            produto: produtoSelecionado,
+          },
+          where: { tipo: { not: "venda" }, created_at: { gte: inicio, lte: fim } },
+          orderBy: { created_at: "desc" },
+          take: LIMITE_EVENTOS,
+        }),
+      "Erro ao listar movimentações do histórico"
+    ),
   ]);
 
-  const eventosVenda: EventoHistorico[] = (vendas ?? []).map((v: any) => {
-    const itens = v.itens_venda ?? [];
-    const nomesProdutos: string[] = itens.map((iv: any) => iv.produtos?.nome).filter(Boolean);
-    const codigosBarras: string[] = itens.map((iv: any) => iv.produtos?.codigo_barras).filter(Boolean);
-    const funcionarioNome = v.funcionarios?.nome ?? "—";
+  const eventosVenda: EventoHistorico[] = vendas.map((v: any) => {
+    const itens = v.itens ?? [];
+    const nomesProdutos: string[] = itens.map((iv: any) => iv.produto?.nome).filter(Boolean);
+    const codigosBarras: string[] = itens.map((iv: any) => iv.produto?.codigo_barras).filter(Boolean);
+    const funcionarioNome = v.funcionario?.nome ?? "—";
 
     return {
       id: v.id,
@@ -79,10 +100,10 @@ export async function listarHistorico(inicio: Date, fim: Date): Promise<EventoHi
     };
   });
 
-  const eventosMovimentacao: EventoHistorico[] = (movimentacoes ?? []).map((m: any) => {
-    const produtoNome = m.produtos?.nome ?? "produto removido";
-    const codigoBarras = m.produtos?.codigo_barras ?? "";
-    const funcionarioNome = m.funcionarios?.nome ?? "—";
+  const eventosMovimentacao: EventoHistorico[] = movimentacoes.map((m: any) => {
+    const produtoNome = m.produto?.nome ?? "produto removido";
+    const codigoBarras = m.produto?.codigo_barras ?? "";
+    const funcionarioNome = m.funcionario?.nome ?? "—";
     const rotuloTipo = ROTULOS_TIPO[m.tipo] ?? m.tipo;
 
     return {

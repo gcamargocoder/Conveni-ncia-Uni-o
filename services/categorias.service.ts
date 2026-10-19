@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 
 export interface Categoria {
   id: string;
@@ -8,65 +8,56 @@ export interface Categoria {
   updated_at?: string;
 }
 
-export async function listarCategorias(): Promise<Categoria[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("categorias")
-    .select("id, nome, ativo")
-    .is("deleted_at", null)
-    .order("nome")
-    .limit(500);
+const CAMPOS = { id: true, nome: true, ativo: true } as const;
 
-  return unwrap(resultado, "Erro ao listar categorias");
+export async function listarCategorias(): Promise<Categoria[]> {
+  return executar(
+    () =>
+      prisma.categoria.findMany({
+        select: CAMPOS,
+        where: { deleted_at: null },
+        orderBy: { nome: "asc" },
+        take: 500,
+      }),
+    "Erro ao listar categorias"
+  );
 }
 
 export async function listarCategoriasAlteradasDesde(desde: Date | null): Promise<Categoria[]> {
-  const supabase = await createSupabaseServerClient();
-  let query = supabase.from("categorias").select("id, nome, ativo, updated_at").order("updated_at");
-
-  if (desde) {
-    query = query.gte("updated_at", desde.toISOString());
-  }
-
-  const resultado = await query.limit(500);
-  return unwrap(resultado, "Erro ao sincronizar categorias");
+  return executar(
+    () =>
+      prisma.categoria.findMany({
+        select: { ...CAMPOS, updated_at: true },
+        where: desde ? { updated_at: { gte: desde } } : undefined,
+        orderBy: { updated_at: "asc" },
+        take: 500,
+      }),
+    "Erro ao sincronizar categorias"
+  );
 }
 
 export async function criarCategoria(nome: string): Promise<Categoria> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("categorias")
-    .insert({ nome })
-    .select("id, nome, ativo")
-    .single();
-
-  return unwrap(resultado, "Erro ao criar categoria");
+  return executar(() => prisma.categoria.create({ data: { nome }, select: CAMPOS }), "Erro ao criar categoria");
 }
 
 export async function atualizarCategoria(id: string, nome: string): Promise<Categoria> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("categorias")
-    .update({ nome })
-    .eq("id", id)
-    .select("id, nome, ativo")
-    .single();
-
-  return unwrap(resultado, "Erro ao atualizar categoria");
+  return executar(
+    () => prisma.categoria.update({ where: { id }, data: { nome }, select: CAMPOS }),
+    "Erro ao atualizar categoria"
+  );
 }
 
 export async function excluirCategoria(id: string): Promise<void> {
-  const supabase = await createSupabaseServerClient();
+  const temProdutos = await executar<{ id: string } | null>(
+    () => prisma.produto.findFirst({ where: { categoria_id: id }, select: { id: true } }),
+    "Erro ao verificar produtos da categoria"
+  );
 
-  const produtosVinculados = await supabase.from("produtos").select("id").eq("categoria_id", id).limit(1);
-  const temProdutos = unwrap(produtosVinculados, "Erro ao verificar produtos da categoria");
-
-  if (temProdutos.length > 0) {
+  if (temProdutos) {
     throw new Error(
       "Esta categoria tem produtos cadastrados nela e não pode ser excluída — mude a categoria desses produtos primeiro, ou edite o nome em vez de excluir."
     );
   }
 
-  const resultado = await supabase.from("categorias").delete().eq("id", id);
-  unwrap(resultado, "Erro ao excluir categoria");
+  await executar(() => prisma.categoria.delete({ where: { id } }), "Erro ao excluir categoria");
 }

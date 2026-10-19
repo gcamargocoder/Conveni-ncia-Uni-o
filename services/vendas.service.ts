@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 import { ItemCarrinho } from "@/lib/vendas/carrinho";
 import { FormaPagamento } from "@/types/venda";
 import { gerarUuid } from "@/lib/utils/uuid";
@@ -18,27 +18,68 @@ export interface ResultadoRegistrarVenda {
   jaExistia: boolean;
 }
 
+/**
+ * Grava venda + itens (+ conta a receber, se fiado) numa única transação.
+ * Idempotente: reenviar o mesmo `id` nunca duplica nada — devolve
+ * `jaExistia: true`. A movimentação de estoque de cada item nasce sozinha
+ * pela trigger trg_itens_venda_gera_movimentacao do banco.
+ */
 export async function registrarVenda(dados: DadosVenda): Promise<ResultadoRegistrarVenda> {
-  const supabase = await createSupabaseServerClient();
   const total = dados.itens.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0);
   const id = dados.id ?? gerarUuid();
+  const dispositivo = dados.dispositivo ?? null;
+  const clienteId = dados.cliente_id ?? null;
 
-  const resultado = await supabase.rpc("registrar_venda_completa", {
-    p_id: id,
-    p_funcionario_id: dados.funcionario_id,
-    p_forma_pagamento: dados.forma_pagamento,
-    p_total: total,
-    p_dispositivo: dados.dispositivo ?? null,
-    p_itens: dados.itens.map((i) => ({
-      produto_id: i.produto_id,
-      quantidade: i.quantidade,
-      preco_unitario: i.preco_unitario,
-    })),
-    p_cliente_id: dados.cliente_id ?? null,
-  });
+  if (dados.forma_pagamento === "fiado" && !clienteId) {
+    throw new Error("Erro ao registrar venda: venda fiado exige um cliente.");
+  }
 
-  const dados_retorno = unwrap(resultado, "Erro ao registrar venda") as { id: string; ja_existia: boolean };
-  return { id: dados_retorno.id, jaExistia: dados_retorno.ja_existia };
+  try {
+    return await executar<ResultadoRegistrarVenda>(
+      () =>
+        prisma.$transaction(async (tx) => {
+          const existente = await tx.venda.findUnique({ where: { id }, select: { id: true } });
+          if (existente) return { id, jaExistia: true };
+
+          await tx.venda.create({
+            data: {
+              id,
+              funcionario_id: dados.funcionario_id,
+              cliente_id: clienteId,
+              forma_pagamento: dados.forma_pagamento,
+              total,
+              dispositivo,
+            },
+          });
+
+          await tx.itemVenda.createMany({
+            data: dados.itens.map((i) => ({
+              venda_id: id,
+              produto_id: i.produto_id,
+              quantidade: i.quantidade,
+              preco_unitario: i.preco_unitario,
+            })),
+          });
+
+          await tx.movimentacaoEstoque.updateMany({ where: { venda_id: id }, data: { dispositivo } });
+
+          if (dados.forma_pagamento === "fiado" && clienteId) {
+            await tx.contaReceber.create({
+              data: { cliente_id: clienteId, venda_id: id, valor_original: total, saldo_atual: total, status: "ABERTA" },
+            });
+          }
+
+          return { id, jaExistia: false };
+        }),
+      "Erro ao registrar venda"
+    );
+  } catch (e) {
+    // Duas sincronizações simultâneas do mesmo id: a segunda perde a corrida no PK
+    // e a venda já está gravada pela primeira — idempotência preservada.
+    const existente = await prisma.venda.findUnique({ where: { id }, select: { id: true } }).catch(() => null);
+    if (existente) return { id, jaExistia: true };
+    throw e;
+  }
 }
 
 export interface ItemVendaDetalhado {
@@ -63,31 +104,40 @@ export interface VendaCompleta {
 }
 
 export async function buscarVendaCompleta(vendaId: string): Promise<VendaCompleta | null> {
-  const supabase = await createSupabaseServerClient();
+  let venda: any;
+  try {
+    venda = await executar<any>(
+      () =>
+        prisma.venda.findUnique({
+          where: { id: vendaId },
+          select: {
+            id: true,
+            created_at: true,
+            total: true,
+            forma_pagamento: true,
+            cancelada: true,
+            funcionario: { select: { nome: true } },
+            cliente: { select: { nome: true, telefone: true } },
+            itens: { select: { quantidade: true, preco_unitario: true, produto: { select: { nome: true } } } },
+          },
+        }),
+      "Erro ao buscar venda"
+    );
+  } catch {
+    return null;
+  }
 
-  const resultadoVenda = await supabase
-    .from("vendas")
-    .select("id, created_at, total, forma_pagamento, cancelada, funcionarios(nome), clientes(nome, telefone)")
-    .eq("id", vendaId)
-    .single();
+  if (!venda) return null;
 
-  if (resultadoVenda.error || !resultadoVenda.data) return null;
-
-  const resultadoItens = await supabase
-    .from("itens_venda")
-    .select("quantidade, preco_unitario, produtos(nome)")
-    .eq("venda_id", vendaId);
-
-  const itens = unwrap(resultadoItens, "Erro ao buscar itens da venda");
-  const { funcionarios, clientes, ...dadosVenda } = resultadoVenda.data as any;
+  const { funcionario, cliente, itens, ...dadosVenda } = venda;
 
   return {
     ...dadosVenda,
-    funcionario_nome: funcionarios?.nome ?? "—",
-    cliente_nome: clientes?.nome ?? null,
-    cliente_telefone: clientes?.telefone ?? null,
-    itens: (itens ?? []).map((i: any) => ({
-      produto_nome: i.produtos?.nome ?? "Produto removido",
+    funcionario_nome: funcionario?.nome ?? "—",
+    cliente_nome: cliente?.nome ?? null,
+    cliente_telefone: cliente?.telefone ?? null,
+    itens: itens.map((i: any) => ({
+      produto_nome: i.produto?.nome ?? "Produto removido",
       quantidade: i.quantidade,
       preco_unitario: i.preco_unitario,
     })),

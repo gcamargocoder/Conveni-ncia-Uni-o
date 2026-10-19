@@ -1,0 +1,212 @@
+// Schema do banco (PostgreSQL puro — Railway). A conexão vem da variável DATABASE_URL.
+// Nomes de campos seguem o snake_case das colunas para que os serviços
+// devolvam exatamente o mesmo formato que a aplicação já consumia.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Categoria {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome       String
+  ativo      Boolean   @default(true)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
+
+  produtos Produto[]
+
+  @@map("categorias")
+}
+
+model Fornecedor {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome         String
+  razao_social String?
+  telefone     String?
+  whatsapp     String?
+  email        String?
+  cnpj_cpf     String?
+  endereco     String?
+  cidade       String?
+  estado       String?
+  observacoes  String?
+  ativo        Boolean   @default(true)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at   DateTime? @db.Timestamptz(6)
+
+  produtos Produto[]
+
+  @@map("fornecedores")
+}
+
+model Funcionario {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome       String
+  cargo      String
+  pin_hash   String
+  ativo      Boolean   @default(true)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
+
+  vendas        Venda[]
+  movimentacoes MovimentacaoEstoque[]
+  recebimentos  Recebimento[]
+
+  @@map("funcionarios")
+}
+
+model Cliente {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome        String
+  telefone    String?
+  cpf         String?
+  endereco    String?
+  observacoes String?
+  ativo       Boolean   @default(true)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at  DateTime? @db.Timestamptz(6)
+
+  vendas         Venda[]
+  contas_receber ContaReceber[]
+
+  @@map("clientes")
+}
+
+model Produto {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome           String
+  categoria_id   String    @db.Uuid
+  fornecedor_id  String?   @db.Uuid
+  codigo_barras  String?
+  descricao      String?
+  preco_venda    Decimal   @db.Decimal(10, 2)
+  preco_custo    Decimal   @default(0) @db.Decimal(10, 2)
+  estoque_minimo Decimal   @default(0) @db.Decimal(10, 3)
+  unidade        String    @default("un")
+  ativo          Boolean   @default(true)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at     DateTime? @db.Timestamptz(6)
+
+  categoria     Categoria             @relation(fields: [categoria_id], references: [id])
+  fornecedor    Fornecedor?           @relation(fields: [fornecedor_id], references: [id])
+  itens_venda   ItemVenda[]
+  movimentacoes MovimentacaoEstoque[]
+
+  @@index([categoria_id])
+  @@map("produtos")
+}
+
+model Venda {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  funcionario_id  String    @db.Uuid
+  cliente_id      String?   @db.Uuid
+  forma_pagamento String
+  total           Decimal   @default(0) @db.Decimal(10, 2)
+  desconto        Decimal?  @db.Decimal(10, 2)
+  valor_recebido  Decimal?  @db.Decimal(10, 2)
+  troco           Decimal?  @db.Decimal(10, 2)
+  cancelada       Boolean   @default(false)
+  dispositivo     String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at      DateTime? @db.Timestamptz(6)
+
+  funcionario    Funcionario           @relation(fields: [funcionario_id], references: [id])
+  cliente        Cliente?              @relation(fields: [cliente_id], references: [id])
+  itens          ItemVenda[]
+  movimentacoes  MovimentacaoEstoque[]
+  contas_receber ContaReceber[]
+
+  @@index([created_at])
+  @@map("vendas")
+}
+
+model ItemVenda {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  venda_id       String   @db.Uuid
+  produto_id     String   @db.Uuid
+  quantidade     Decimal  @db.Decimal(10, 3)
+  preco_unitario Decimal  @db.Decimal(10, 2)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  venda   Venda   @relation(fields: [venda_id], references: [id])
+  produto Produto @relation(fields: [produto_id], references: [id])
+
+  @@index([venda_id])
+  @@map("itens_venda")
+}
+
+// Fato histórico: sem updated_at/deleted_at de propósito.
+model MovimentacaoEstoque {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  produto_id     String   @db.Uuid
+  tipo           String
+  quantidade     Decimal  @db.Decimal(10, 3)
+  funcionario_id String   @db.Uuid
+  observacao     String?
+  venda_id       String?  @db.Uuid
+  dispositivo    String?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  produto     Produto     @relation(fields: [produto_id], references: [id])
+  funcionario Funcionario @relation(fields: [funcionario_id], references: [id])
+  venda       Venda?      @relation(fields: [venda_id], references: [id])
+
+  @@index([produto_id])
+  @@index([created_at])
+  @@map("movimentacoes_estoque")
+}
+
+model ContaReceber {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cliente_id     String   @db.Uuid
+  venda_id       String   @db.Uuid
+  valor_original Decimal  @db.Decimal(10, 2)
+  saldo_atual    Decimal  @db.Decimal(10, 2)
+  status         String   @default("ABERTA")
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  cliente      Cliente       @relation(fields: [cliente_id], references: [id])
+  venda        Venda         @relation(fields: [venda_id], references: [id])
+  recebimentos Recebimento[]
+
+  @@index([cliente_id])
+  @@index([status])
+  @@map("contas_receber")
+}
+
+model Recebimento {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conta_receber_id String   @db.Uuid
+  valor            Decimal  @db.Decimal(10, 2)
+  forma_pagamento  String
+  observacoes      String?
+  funcionario_id   String   @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  conta_receber ContaReceber @relation(fields: [conta_receber_id], references: [id])
+  funcionario   Funcionario  @relation(fields: [funcionario_id], references: [id])
+
+  @@index([conta_receber_id])
+  @@map("recebimentos")
+}
+
+model TentativaPin {
+  identificador     String    @id
+  tentativas_falhas Int       @default(0)
+  bloqueado_ate     DateTime? @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("tentativas_pin")
+}

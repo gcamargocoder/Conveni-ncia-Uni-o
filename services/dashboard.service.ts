@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 import { listarProdutosAbaixoDoMinimo } from "./estoque.service";
 
 export interface ResumoDashboard {
@@ -10,18 +10,23 @@ export interface ResumoDashboard {
 }
 
 export async function buscarResumoDashboard(): Promise<ResumoDashboard> {
-  const supabase = await createSupabaseServerClient();
-
   const [resumoVendas, produtosEstoqueBaixo, maisVendidos] = await Promise.all([
-    supabase.from("resumo_vendas_hoje").select("*").single(),
+    executar<{ quantidade_vendas: number; faturamento: number }[]>(
+      () => prisma.$queryRaw`
+        SELECT quantidade_vendas::int AS quantidade_vendas, faturamento FROM resumo_vendas_hoje`,
+      "Erro ao buscar resumo de vendas"
+    ),
     listarProdutosAbaixoDoMinimo(),
-    supabase.rpc("produtos_mais_vendidos", { p_dias: 30, p_limite: 5 }),
+    executar<ResumoDashboard["produtosMaisVendidos"]>(
+      () => prisma.$queryRaw`SELECT * FROM produtos_mais_vendidos(30, 5)`,
+      "Erro ao buscar produtos mais vendidos"
+    ),
   ]);
 
   return {
-    quantidadeVendasHoje: resumoVendas.data?.quantidade_vendas ?? 0,
-    faturamentoHoje: resumoVendas.data?.faturamento ?? 0,
+    quantidadeVendasHoje: resumoVendas[0]?.quantidade_vendas ?? 0,
+    faturamentoHoje: resumoVendas[0]?.faturamento ?? 0,
     produtosEstoqueBaixo,
-    produtosMaisVendidos: unwrap(maisVendidos, "Erro ao buscar produtos mais vendidos"),
+    produtosMaisVendidos: maisVendidos,
   };
 }

@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 import { DadosFornecedor } from "@/lib/fornecedores/validacao";
 
 export interface Fornecedor {
@@ -18,32 +18,27 @@ export interface Fornecedor {
 }
 
 export async function listarFornecedores(): Promise<Fornecedor[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("fornecedores")
-    .select("*")
-    .is("deleted_at", null)
-    .order("nome")
-    .limit(500);
-
-  return unwrap(resultado, "Erro ao listar fornecedores");
+  return executar(
+    () => prisma.fornecedor.findMany({ where: { deleted_at: null }, orderBy: { nome: "asc" }, take: 500 }),
+    "Erro ao listar fornecedores"
+  );
 }
 
 export async function buscarFornecedorPorId(id: string): Promise<Fornecedor | null> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.from("fornecedores").select("*").eq("id", id).single();
-  if (resultado.error || !resultado.data) return null;
-  return resultado.data as Fornecedor;
+  try {
+    return await executar<Fornecedor | null>(
+      () => prisma.fornecedor.findUnique({ where: { id } }),
+      "Erro ao buscar fornecedor"
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function criarFornecedor(dados: DadosFornecedor): Promise<Fornecedor> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.from("fornecedores").insert(dados).select().single();
-  return unwrap(resultado, "Erro ao criar fornecedor");
+  return executar(() => prisma.fornecedor.create({ data: dados }), "Erro ao criar fornecedor");
 }
 
 export async function atualizarFornecedor(id: string, dados: DadosFornecedor): Promise<Fornecedor> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase.from("fornecedores").update(dados).eq("id", id).select().single();
-  return unwrap(resultado, "Erro ao atualizar fornecedor");
+  return executar(() => prisma.fornecedor.update({ where: { id }, data: dados }), "Erro ao atualizar fornecedor");
 }

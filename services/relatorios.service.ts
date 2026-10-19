@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "./supabase/server";
-import { unwrap } from "./supabase/query-helpers";
+import { prisma } from "./prisma/client";
+import { executar } from "./prisma/query-helpers";
 
 export interface VendaRelatorio {
   id: string;
@@ -18,16 +18,16 @@ export interface ResumoPorFormaPagamento {
 const LIMITE_VENDAS_RELATORIO = 1000;
 
 export async function listarVendasPorPeriodo(inicio: Date, fim: Date): Promise<VendaRelatorio[]> {
-  const supabase = await createSupabaseServerClient();
-  const resultado = await supabase
-    .from("vendas")
-    .select("id, created_at, total, forma_pagamento, cancelada")
-    .gte("created_at", inicio.toISOString())
-    .lte("created_at", fim.toISOString())
-    .order("created_at", { ascending: false })
-    .limit(LIMITE_VENDAS_RELATORIO);
-
-  return unwrap(resultado, "Erro ao listar vendas");
+  return executar(
+    () =>
+      prisma.venda.findMany({
+        select: { id: true, created_at: true, total: true, forma_pagamento: true, cancelada: true },
+        where: { created_at: { gte: inicio, lte: fim } },
+        orderBy: { created_at: "desc" },
+        take: LIMITE_VENDAS_RELATORIO,
+      }),
+    "Erro ao listar vendas"
+  );
 }
 
 export function resumirPorFormaPagamento(vendas: VendaRelatorio[]): ResumoPorFormaPagamento[] {

@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { autenticarPorPin } from "@/services/funcionarios.service";
-import { createSupabaseServerClient } from "@/services/supabase/server";
+import { prisma } from "@/services/prisma/client";
 import {
   estaBloqueado,
   deveBloquear,
@@ -29,14 +29,16 @@ async function obterIdentificador(): Promise<string> {
  * bloqueia a origem após MAX_TENTATIVAS falhas seguidas.
  */
 export async function validarPinAction(pin: string): Promise<ResultadoAutenticacao> {
-  const supabase = await createSupabaseServerClient();
   const identificador = await obterIdentificador();
 
-  const { data: estado } = await supabase
-    .from("tentativas_pin")
-    .select("tentativas_falhas, bloqueado_ate")
-    .eq("identificador", identificador)
-    .maybeSingle<EstadoTentativas>();
+  const registro = await prisma.tentativaPin.findUnique({
+    where: { identificador },
+    select: { tentativas_falhas: true, bloqueado_ate: true },
+  });
+  const estado: EstadoTentativas | null = registro && {
+    tentativas_falhas: registro.tentativas_falhas,
+    bloqueado_ate: registro.bloqueado_ate?.toISOString() ?? null,
+  };
 
   if (estaBloqueado(estado)) {
     return { sucesso: false, erro: "Muitas tentativas. Tente novamente em alguns minutos." };
@@ -48,11 +50,15 @@ export async function validarPinAction(pin: string): Promise<ResultadoAutenticac
     const falhasAtuais = estado?.tentativas_falhas ?? 0;
     const bloquear = deveBloquear(falhasAtuais);
 
-    await supabase.from("tentativas_pin").upsert({
-      identificador,
+    const novoEstado = {
       tentativas_falhas: falhasAtuais + 1,
-      bloqueado_ate: bloquear ? calcularBloqueioAte() : null,
-      updated_at: new Date().toISOString(),
+      bloqueado_ate: bloquear ? new Date(calcularBloqueioAte()) : null,
+      updated_at: new Date(),
+    };
+    await prisma.tentativaPin.upsert({
+      where: { identificador },
+      create: { identificador, ...novoEstado },
+      update: novoEstado,
     });
 
     return {
@@ -64,9 +70,12 @@ export async function validarPinAction(pin: string): Promise<ResultadoAutenticac
   }
 
   // sucesso: zera o contador de tentativas falhas desta origem
-  await supabase
-    .from("tentativas_pin")
-    .upsert({ identificador, tentativas_falhas: 0, bloqueado_ate: null, updated_at: new Date().toISOString() });
+  const estadoZerado = { tentativas_falhas: 0, bloqueado_ate: null, updated_at: new Date() };
+  await prisma.tentativaPin.upsert({
+    where: { identificador },
+    create: { identificador, ...estadoZerado },
+    update: estadoZerado,
+  });
 
   return {
     sucesso: true,

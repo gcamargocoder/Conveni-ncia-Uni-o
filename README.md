@@ -6,11 +6,11 @@ O sistema nunca pode impedir uma venda.
 ## Camadas (fluxo de dados)
 
 ```
-Tela (app/)  →  Componente (components/)  →  Regra de negócio (lib/)  →  Serviço (services/)  →  Supabase
+Tela (app/)  →  Componente (components/)  →  Regra de negócio (lib/)  →  Serviço (services/)  →  PostgreSQL (Prisma)
 ```
 
-A tela **nunca** fala direto com o Supabase. Sempre passa por `lib/` (regra de
-negócio) e `services/` (acesso a dados, sempre via `services/supabase/query-helpers.ts`
+A tela **nunca** fala direto com o banco. Sempre passa por `lib/` (regra de
+negócio) e `services/` (acesso a dados, sempre via `services/prisma/query-helpers.ts`
 para tratamento de erro consistente). Isso é o que vai permitir ligar o
 Offline First no futuro trocando apenas a camada `services/`, sem tocar em
 telas.
@@ -22,15 +22,15 @@ telas.
 | `app/` | Telas (PDV, Dashboard, Produtos, Estoque...) |
 | `components/` | Peças de UI reutilizáveis, organizadas por módulo (auth, pdv, produtos, estoque, fornecedores, funcionarios, ui) |
 | `lib/` | Regras de negócio puras + Server Actions |
-| `services/` | Único ponto de acesso ao banco (usa `service_role`, nunca a chave pública) |
+| `services/` | Único ponto de acesso ao banco (Prisma Client em `services/prisma/client.ts`, conectado via `DATABASE_URL`) |
 | `types/` | Formato dos dados (Produto, Venda, Funcionário...) |
 | `hooks/` | Lógica reaproveitável de React |
-| `supabase/migrations/` | Scripts SQL do banco, em ordem numerada |
+| `prisma/` | `schema.prisma` e migrations SQL do PostgreSQL |
 
 ## Segurança (ver AUDITORIA.md para detalhes)
 
-- **RLS habilitado em todas as tabelas, sem policy pública** (migration `0010`) — o navegador nunca acessa o banco diretamente, só via `service_role` no servidor.
-- **PIN protegido contra força bruta**: bloqueio de 15 min após 5 tentativas falhas por origem (migration `0011`).
+- **O banco só é acessível pelo servidor**: o navegador nunca recebe `DATABASE_URL` nem fala com o Postgres; todo acesso passa por Server Actions/Server Components.
+- **PIN protegido contra força bruta**: bloqueio de 15 min após 5 tentativas falhas por origem (tabela `tentativas_pin`).
 - `.env.local` nunca vai para o Git (`.gitignore`).
 
 ## Convenções adotadas desde o início
@@ -40,8 +40,8 @@ telas.
 - Nenhuma movimentação de estoque altera quantidade diretamente — tudo passa por `MovimentacaoEstoque`.
 - Operadores se identificam por **PIN de 4 dígitos**, nunca login/logout tradicional.
 - Toda operação relevante registra **operador, data/hora e dispositivo** (user-agent capturado automaticamente).
-- Toda consulta ao Supabase usa `unwrap()` (`services/supabase/query-helpers.ts`) para tratamento de erro consistente.
-- Listagens têm limite defensivo (`.limit()`) para não trazer catálogos inteiros de uma vez.
+- Toda consulta ao banco usa `executar()` (`services/prisma/query-helpers.ts`) para tratamento de erro consistente.
+- Listagens têm limite defensivo (`take`) para não trazer catálogos inteiros de uma vez.
 - A busca de produtos do PDV acontece **no servidor** (`buscarProdutosParaVenda`), não filtrando um catálogo inteiro carregado no navegador.
 
 ## Offline First (planejado, não implementado nesta fase)
@@ -75,15 +75,15 @@ Isso é proposital: cada próxima etapa vai plugar um módulo de cada vez.
 
 
 
-1. Crie um projeto em supabase.com
-2. Rode as migrations em `supabase/migrations/`, em ordem numérica
-3. Copie `.env.example` para `.env.local` e preencha `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (painel do Supabase → Settings → API)
-4. `npm install && npm run dev`
+1. Tenha um PostgreSQL (local ou Railway)
+2. Copie `.env.example` para `.env.local` e preencha `DATABASE_URL`
+3. `npm install` (gera o Prisma Client) e `npm run db:migrate` (aplica `prisma/migrations`)
+4. `npm run dev`
 5. `npm run test` roda a suíte de testes automatizados
 
 ## Offline First — Fase 2: catálogo local-first
 
-O PDV **nunca mais consulta o Supabase diretamente para pesquisar
+O PDV **nunca mais consulta o banco diretamente para pesquisar
 produtos** — mesmo com internet disponível. Toda busca (`ProdutoBusca`)
 usa `services/offline/produtos-local.service.ts`, que só lê o IndexedDB.
 A internet serve exclusivamente para manter esse espelho local
@@ -216,3 +216,11 @@ um nível de produção comercial.
 Testes desta fase: `services/offline/__tests__/integridade.test.ts`,
 `logs.test.ts`, `auditoria-conflitos.test.ts`, além dos ajustes em
 `backoff.test.ts` e `worker-sincronizacao.test.ts` para a nova escada.
+
+
+## Deploy no Railway
+
+1. Crie um projeto no Railway, adicione o plugin **PostgreSQL** e o serviço do app (repositório GitHub).
+2. No serviço do app, crie a variável `DATABASE_URL` com o valor `${{Postgres.DATABASE_URL}}`.
+3. O build roda `prisma generate && next build`; o start roda `prisma migrate deploy && next start` (aplica as migrations automaticamente).
+4. Para trazer dados de um banco antigo, use a tela **Backup** (gerar no ambiente antigo, restaurar no novo).

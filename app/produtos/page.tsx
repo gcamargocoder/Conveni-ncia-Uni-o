@@ -1,7 +1,7 @@
 import { Tags } from "lucide-react";
 import { listarProdutos } from "@/services/produtos.service";
 import { listarFornecedores } from "@/services/fornecedores.service";
-import { createSupabaseServerClient } from "@/services/supabase/server";
+import { listarCategorias } from "@/services/categorias.service";
 import { ProdutoCadastroModal } from "@/components/produtos/ProdutoCadastroModal";
 import { ProdutoEditarModal } from "@/components/produtos/ProdutoEditarModal";
 import { Card } from "@/components/ui/Card";
@@ -11,14 +11,13 @@ import { Table } from "@/components/ui/Table";
 export const dynamic = "force-dynamic";
 
 export default async function ProdutosPage() {
-  const supabase = await createSupabaseServerClient();
-  const [produtos, fornecedores, { data: categorias }] = await Promise.all([
+  const [produtos, fornecedores, categorias] = await Promise.all([
     listarProdutos(),
     listarFornecedores(),
-    supabase.from("categorias").select("id, nome").is("deleted_at", null).order("nome"),
+    listarCategorias(),
   ]);
 
-  const categoriasOpcoes = categorias ?? [];
+  const categoriasOpcoes = categorias.map((c) => ({ id: c.id, nome: c.nome }));
   const fornecedoresOpcoes = fornecedores.map((f) => ({ id: f.id, nome: f.nome }));
 
   return (
