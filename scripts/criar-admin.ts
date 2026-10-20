@@ -15,34 +15,13 @@
  * administradores foram perdidos; com --forcar, um e-mail já existente tem
  * a senha redefinida e é promovido/reativado como administrador).
  */
-import { createInterface } from "node:readline";
-import { Writable } from "node:stream";
+import { perguntar } from "./perguntar";
 import { prisma } from "../services/prisma/client";
 import { emailValido, gerarHashSenha, normalizarEmail, validarPoliticaSenha } from "../lib/auth/senha";
 
 function argumento(nome: string): string | undefined {
   const i = process.argv.indexOf(`--${nome}`);
   return i >= 0 ? process.argv[i + 1] : undefined;
-}
-
-function perguntar(pergunta: string, oculto = false): Promise<string> {
-  let mudo = false;
-  const saida = new Writable({
-    write(chunk, _enc, cb) {
-      if (!mudo) process.stdout.write(chunk);
-      cb();
-    },
-  });
-  const rl = createInterface({ input: process.stdin, output: saida, terminal: true });
-  return new Promise((resolver) => {
-    process.stdout.write(pergunta);
-    mudo = oculto;
-    rl.question("", (resposta) => {
-      rl.close();
-      if (oculto) process.stdout.write("\n");
-      resolver(resposta);
-    });
-  });
 }
 
 async function principal() {
