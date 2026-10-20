@@ -5,10 +5,12 @@ import { FuncionarioEditarModal } from "@/components/funcionarios/FuncionarioEdi
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
 export default async function FuncionariosPage() {
+  await exigirSessao();
   const funcionarios = await listarFuncionarios();
 
   return (

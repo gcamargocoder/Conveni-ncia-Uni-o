@@ -3,10 +3,12 @@ import { listarClientes } from "@/services/clientes.service";
 import { ClienteCadastroModal } from "@/components/clientes/ClienteCadastroModal";
 import { ListaClientes } from "@/components/clientes/ListaClientes";
 import { Card } from "@/components/ui/Card";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientesPage() {
+  await exigirSessao();
   const clientes = await listarClientes();
 
   return (

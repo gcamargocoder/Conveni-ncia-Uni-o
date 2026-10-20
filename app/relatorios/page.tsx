@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
 import { ImpressaoRelatorios } from "@/components/relatorios/ImpressaoRelatorios";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function RelatoriosPage({
 }: {
   searchParams: Promise<{ periodo?: string }>;
 }) {
+  await exigirSessao();
   const { periodo: periodoParam } = await searchParams;
   const periodo = periodoParam ?? "7dias";
   const dias = PERIODOS[periodo] ?? 7;

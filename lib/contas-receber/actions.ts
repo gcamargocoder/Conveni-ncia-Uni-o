@@ -1,5 +1,7 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
+
 import { revalidatePath } from "next/cache";
 import {
   registrarPagamento,
@@ -12,10 +14,14 @@ import { validarPagamento, DadosFormPagamento } from "@/lib/contas-receber/valid
 import { validarPinAction } from "@/lib/auth/actions";
 
 export async function buscarContaAction(id: string): Promise<DetalheContaReceber | null> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return null;
   return buscarConta(id);
 }
 
 export async function buscarDetalheClienteAction(clienteId: string): Promise<DetalheCliente | null> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return null;
   return buscarDetalheCliente(clienteId);
 }
 
@@ -32,6 +38,8 @@ export async function registrarPagamentoAction(
   saldoAtual: number,
   pin: string
 ): Promise<ResultadoAcaoPagamento> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   const erros = validarPagamento(dados, saldoAtual);
   if (erros.length > 0) {
     return { sucesso: false, erro: erros[0].mensagem };

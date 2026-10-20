@@ -27,6 +27,12 @@ export async function listarPendentes(): Promise<ItemFilaSincronizacao[]> {
     .sortBy("criado_em");
 }
 
+/** Vendas que o servidor reteve para revisão ou rejeitou: ficam visíveis até serem resolvidas. */
+export async function listarRetidas(): Promise<ItemFilaSincronizacao[]> {
+  const db = getOfflineDB();
+  return db.fila_sincronizacao.where("status").anyOf("em_revisao", "rejeitada").sortBy("criado_em");
+}
+
 export async function contarPendentes(): Promise<number> {
   const db = getOfflineDB();
   return db.fila_sincronizacao.where("status").anyOf("pendente", "erro").count();

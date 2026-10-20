@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+import { verificarAcesso, obterIp } from "@/lib/auth/servidor";
 import { autenticarPorPin } from "@/services/funcionarios.service";
 import { prisma } from "@/services/prisma/client";
 import {
@@ -15,12 +15,14 @@ export interface ResultadoAutenticacao {
   sucesso: boolean;
   funcionario?: { id: string; nome: string; cargo: Cargo };
   erro?: string;
+  /** Por que falhou: o PDV distingue "PIN errado" (definitivo) de "sem sessão" (cai no PIN offline). */
+  motivo?: "sem_sessao" | "bloqueado" | "pin_incorreto";
 }
 
+// Mesma origem usada no login: prefere x-real-ip (definido pelo proxy), pois o primeiro item
+// de x-forwarded-for pode ser forjado pelo cliente para escapar do bloqueio por tentativas.
 async function obterIdentificador(): Promise<string> {
-  const h = await headers();
-  // atrás de proxy/load balancer, x-forwarded-for tem o IP real primeiro
-  return h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? "desconhecido";
+  return obterIp();
 }
 
 /**
@@ -29,6 +31,8 @@ async function obterIdentificador(): Promise<string> {
  * bloqueia a origem após MAX_TENTATIVAS falhas seguidas.
  */
 export async function validarPinAction(pin: string): Promise<ResultadoAutenticacao> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro, motivo: "sem_sessao" };
   const identificador = await obterIdentificador();
 
   const registro = await prisma.tentativaPin.findUnique({
@@ -41,7 +45,7 @@ export async function validarPinAction(pin: string): Promise<ResultadoAutenticac
   };
 
   if (estaBloqueado(estado)) {
-    return { sucesso: false, erro: "Muitas tentativas. Tente novamente em alguns minutos." };
+    return { sucesso: false, erro: "Muitas tentativas. Tente novamente em alguns minutos.", motivo: "bloqueado" };
   }
 
   const funcionario = await autenticarPorPin(pin);
@@ -66,6 +70,7 @@ export async function validarPinAction(pin: string): Promise<ResultadoAutenticac
       erro: bloquear
         ? "Muitas tentativas. Tente novamente em alguns minutos."
         : "PIN incorreto.",
+      motivo: bloquear ? "bloqueado" : "pin_incorreto",
     };
   }
 

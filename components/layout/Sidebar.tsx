@@ -3,6 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useSessao } from "@/components/auth/SessaoProvider";
+import { BotaoSair } from "@/components/auth/BotaoSair";
+import { IndicadorRevisao } from "@/components/vendas/IndicadorRevisao";
 import {
   ShoppingCart,
   Boxes,
@@ -17,6 +20,8 @@ import {
   History,
   RefreshCw,
   DatabaseBackup,
+  UserCog,
+  ClipboardCheck,
   ChevronLeft,
   ChevronRight,
   X,
@@ -27,6 +32,7 @@ interface ItemMenu {
   href: string;
   titulo: string;
   icone: LucideIcon;
+  somenteAdmin?: boolean;
 }
 
 interface GrupoMenu {
@@ -60,7 +66,14 @@ const GRUPOS: GrupoMenu[] = [
       { href: "/relatorios", titulo: "Relatórios", icone: FileBarChart2 },
       { href: "/historico", titulo: "Histórico", icone: History },
       { href: "/sincronizacao", titulo: "Sincronização", icone: RefreshCw },
-      { href: "/backup", titulo: "Backup", icone: DatabaseBackup },
+      { href: "/backup", titulo: "Backup", icone: DatabaseBackup, somenteAdmin: true },
+    ],
+  },
+  {
+    rotulo: "Administração",
+    itens: [
+      { href: "/vendas-revisao", titulo: "Vendas em revisão", icone: ClipboardCheck, somenteAdmin: true },
+      { href: "/usuarios", titulo: "Usuários", icone: UserCog, somenteAdmin: true },
     ],
   },
 ];
@@ -74,6 +87,12 @@ interface SidebarProps {
 
 export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMobile }: SidebarProps) {
   const pathname = usePathname();
+  const { usuario } = useSessao();
+  const ehAdmin = usuario?.papel === "admin";
+
+  const grupos = GRUPOS.map((g) => ({ ...g, itens: g.itens.filter((i) => !i.somenteAdmin || ehAdmin) })).filter(
+    (g) => g.itens.length > 0
+  );
 
   return (
     <>
@@ -124,7 +143,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-5">
-          {GRUPOS.map((grupo) => (
+          {grupos.map((grupo) => (
             <div key={grupo.rotulo}>
               {!colapsada && (
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-1.5">
@@ -154,6 +173,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
                           }`}
                       />
                       {!colapsada && item.titulo}
+                      {item.href === "/vendas-revisao" && <IndicadorRevisao colapsada={colapsada} />}
                     </Link>
                   );
                 })}
@@ -161,6 +181,18 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
             </div>
           ))}
         </nav>
+
+        {usuario && (
+          <div className="flex items-center gap-2 px-3 py-3 border-t border-slate-100 shrink-0">
+            {!colapsada && (
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-900 truncate">{usuario.nome}</p>
+                <p className="text-xs text-slate-400 truncate">{ehAdmin ? "Administrador" : "Operador"}</p>
+              </div>
+            )}
+            <BotaoSair colapsada={colapsada} />
+          </div>
+        )}
 
         <a
           href="https://gc-sys.vercel.app/"

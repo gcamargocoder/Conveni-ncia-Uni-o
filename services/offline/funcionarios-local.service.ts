@@ -1,10 +1,9 @@
 import { getOfflineDB, FuncionarioLocal } from "./db";
 
 /**
- * Espelho local mínimo de funcionários — necessário para o PIN
- * funcionar offline numa etapa futura. Guardar o pin_hash localmente
- * é um risco de segurança já documentado em OFFLINE_FIRST_ARCHITECTURE.md
- * (seção 8) — aceito conscientemente, não um descuido.
+ * Espelho local mínimo de funcionários (id, nome, cargo, ativo) — NUNCA com pin_hash.
+ * Os verificadores de PIN para o uso offline vivem em credenciais_pin_local e só existem
+ * para cargos que apenas vendem (ver INTEGRIDADE_PDV.md).
  */
 
 export async function listarFuncionariosLocal(): Promise<FuncionarioLocal[]> {

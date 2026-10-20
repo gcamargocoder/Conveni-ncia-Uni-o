@@ -110,6 +110,7 @@ model Venda {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   funcionario_id  String    @db.Uuid
   cliente_id      String?   @db.Uuid
+  usuario_id      String?   @db.Uuid // login autenticado que registrou (≠ funcionário do PDV)
   forma_pagamento String
   total           Decimal   @default(0) @db.Decimal(10, 2)
   desconto        Decimal?  @db.Decimal(10, 2)
@@ -123,11 +124,13 @@ model Venda {
 
   funcionario    Funcionario           @relation(fields: [funcionario_id], references: [id])
   cliente        Cliente?              @relation(fields: [cliente_id], references: [id])
+  usuario        Usuario?              @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
   itens          ItemVenda[]
   movimentacoes  MovimentacaoEstoque[]
   contas_receber ContaReceber[]
 
   @@index([created_at])
+  @@index([usuario_id])
   @@map("vendas")
 }
 
@@ -209,4 +212,111 @@ model TentativaPin {
   updated_at        DateTime  @default(now()) @db.Timestamptz(6)
 
   @@map("tentativas_pin")
+}
+
+// =========================================================
+// Autenticação de usuários do sistema (login por e-mail + senha).
+// Independente de `funcionarios`: o PIN continua sendo a identificação
+// do operador de caixa e a autorização de operações sensíveis.
+// =========================================================
+
+model Usuario {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String    @unique // sempre minúsculo (CHECK no banco)
+  nome              String
+  senha_hash        String // Argon2id — nunca a senha
+  papel             String    @default("operador") // 'admin' | 'operador'
+  ativo             Boolean   @default(true)
+  senha_alterada_em DateTime? @db.Timestamptz(6)
+  ultimo_login_em   DateTime? @db.Timestamptz(6)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  sessoes            Sessao[]
+  tokens_recuperacao TokenRecuperacao[]
+  vendas             Venda[]
+  vendas_revisao     VendaRevisao[]     @relation("RevisaoOrigem")
+  revisoes_decididas VendaRevisao[]     @relation("RevisaoDecisao")
+
+  @@map("usuarios")
+}
+
+model Sessao {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuario_id         String   @db.Uuid
+  token_hash         String   @unique // SHA-256 do token do cookie; o token em si nunca é gravado
+  expira_em          DateTime @db.Timestamptz(6) // expiração por inatividade (renovável)
+  expira_absoluta_em DateTime @db.Timestamptz(6) // teto, não renovável
+  ultimo_uso_em      DateTime @default(now()) @db.Timestamptz(6)
+  ip                 String?
+  user_agent         String?
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id])
+  @@index([expira_em])
+  @@map("sessoes")
+}
+
+model TokenRecuperacao {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuario_id String    @db.Uuid
+  token_hash String    @unique // SHA-256 do token enviado por e-mail
+  expira_em  DateTime  @db.Timestamptz(6)
+  usado_em   DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id])
+  @@map("tokens_recuperacao")
+}
+
+// Pedido pendente de ativação da conta principal (confirmado por link de uso único).
+model AtivacaoInicial {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email      String // minúsculo (CHECK no banco)
+  nome       String
+  senha_hash String // Argon2id — nunca a senha
+  token_hash String    @unique // SHA-256 do token enviado por e-mail
+  expira_em  DateTime  @db.Timestamptz(6)
+  usado_em   DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("ativacoes_iniciais")
+}
+
+// Limitador persistente (compartilhado entre instâncias): uma linha por chave
+// ("login:conta:<hash>", "login:ip:<ip>", "rec:ip:<ip>", ...).
+model LimiteTentativa {
+  chave         String    @id
+  falhas        Int       @default(0)
+  nivel         Int       @default(0) // degrau do bloqueio progressivo
+  bloqueado_ate DateTime? @db.Timestamptz(6)
+  atualizado_em DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@map("limites_tentativa")
+}
+
+// Venda vinda da fila offline que o servidor não aceitou automaticamente.
+// "id" é o mesmo da venda local (idempotência). Nunca é apagada pelo sistema.
+model VendaRevisao {
+  id             String    @id @db.Uuid
+  usuario_id     String?   @db.Uuid
+  funcionario_id String? // texto: pode ser um valor inválido/forjado, por isso sem FK
+  payload        Json
+  motivos        Json
+  bloqueante     Boolean   @default(false) // true = não pode ser aprovada (payload malformado)
+  status         String    @default("pendente") // pendente | aprovada | rejeitada
+  decidido_por   String?   @db.Uuid
+  decidido_em    DateTime? @db.Timestamptz(6)
+  observacao     String?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  usuario Usuario? @relation("RevisaoOrigem", fields: [usuario_id], references: [id], onDelete: SetNull)
+  decisor Usuario? @relation("RevisaoDecisao", fields: [decidido_por], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("vendas_revisao")
 }

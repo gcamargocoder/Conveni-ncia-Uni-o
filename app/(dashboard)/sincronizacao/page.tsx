@@ -26,6 +26,8 @@ const BADGE_STATUS_FILA: Record<StatusFila, { variante: "neutral" | "brand" | "d
   sincronizando: { variante: "brand", rotulo: "Sincronizando" },
   erro: { variante: "danger", rotulo: "Erro" },
   sincronizado: { variante: "success", rotulo: "Sincronizado" },
+  em_revisao: { variante: "brand", rotulo: "Em revisão" },
+  rejeitada: { variante: "danger", rotulo: "Rejeitada" },
 };
 
 export default function SincronizacaoPage() {

@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { StatusOperacional } from "@/components/dashboard/StatusOperacional";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 const ATALHOS = [
   { href: "/pdv", titulo: "Nova venda", icone: ShoppingCart },
@@ -41,6 +42,7 @@ function formatarMoeda(valor: number): string {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await exigirSessao();
   const seteDiasAtras = new Date();
   seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
   seteDiasAtras.setHours(0, 0, 0, 0);

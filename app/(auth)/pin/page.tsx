@@ -1,6 +1,8 @@
 import { PinInput } from "@/components/auth/PinInput";
+import { exigirSessao } from "@/lib/auth/servidor";
 
-export default function PinPage() {
+export default async function PinPage() {
+  await exigirSessao();
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-8 bg-white px-4">
       <div className="text-center">

@@ -1,5 +1,6 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
 import { revalidatePath } from "next/cache";
 import { criarFornecedor, atualizarFornecedor, Fornecedor } from "@/services/fornecedores.service";
 import { validarFornecedor, DadosFornecedor } from "@/lib/fornecedores/validacao";
@@ -12,6 +13,8 @@ export interface ResultadoAcaoFornecedor {
 }
 
 export async function criarFornecedorAction(dados: DadosFornecedor): Promise<ResultadoAcaoFornecedor> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const erros = validarFornecedor(dados);
   if (erros.length > 0) return { sucesso: false, erros };
 
@@ -28,6 +31,8 @@ export async function atualizarFornecedorAction(
   id: string,
   dados: DadosFornecedor
 ): Promise<ResultadoAcaoFornecedor> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const erros = validarFornecedor(dados);
   if (erros.length > 0) return { sucesso: false, erros };
 

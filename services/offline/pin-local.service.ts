@@ -34,11 +34,13 @@ export async function validarPinLocalmente(pin: string): Promise<ResultadoValida
   }
 
   const db = getOfflineDB();
-  const todos = await db.funcionarios_local.toArray();
-  const ativos = todos.filter((f) => f.ativo);
+  const ativos = new Map((await db.funcionarios_local.toArray()).filter((f) => f.ativo).map((f) => [f.id, f]));
+  const credenciais = await db.credenciais_pin_local.toArray();
 
-  for (const funcionario of ativos) {
-    const confere = await verificarPin(pin, funcionario.pin_hash);
+  for (const credencial of credenciais) {
+    const funcionario = ativos.get(credencial.funcionario_id);
+    if (!funcionario) continue;
+    const confere = await verificarPin(pin, credencial.pin_hash);
     if (confere) {
       await salvarEstadoTentativas({ tentativas_falhas: 0, bloqueado_ate: null });
       return {

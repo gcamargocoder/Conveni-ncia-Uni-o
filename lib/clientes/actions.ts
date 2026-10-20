@@ -1,5 +1,7 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
+
 import { revalidatePath } from "next/cache";
 import { criarCliente, atualizarCliente, desativarCliente, excluirCliente } from "@/services/clientes.service";
 import { validarCliente, DadosCliente } from "@/lib/clientes/validacao";
@@ -13,6 +15,8 @@ export interface ResultadoAcaoCliente {
 }
 
 export async function criarClienteAction(dados: DadosCliente): Promise<ResultadoAcaoCliente> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const erros = validarCliente(dados);
   if (erros.length > 0) return { sucesso: false, erros };
 
@@ -26,6 +30,8 @@ export async function criarClienteAction(dados: DadosCliente): Promise<Resultado
 }
 
 export async function atualizarClienteAction(id: string, dados: DadosCliente): Promise<ResultadoAcaoCliente> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const erros = validarCliente(dados);
   if (erros.length > 0) return { sucesso: false, erros };
 
@@ -39,6 +45,8 @@ export async function atualizarClienteAction(id: string, dados: DadosCliente): P
 }
 
 export async function desativarClienteAction(id: string): Promise<ResultadoAcaoCliente> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   try {
     await desativarCliente(id);
     revalidatePath("/clientes");
@@ -49,6 +57,8 @@ export async function desativarClienteAction(id: string): Promise<ResultadoAcaoC
 }
 
 export async function excluirClienteAction(id: string): Promise<ResultadoAcaoCliente> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   try {
     await excluirCliente(id);
     revalidatePath("/clientes");

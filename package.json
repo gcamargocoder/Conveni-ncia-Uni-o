@@ -10,9 +10,16 @@
     "test": "vitest run",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "admin:criar": "tsx scripts/criar-admin.ts",
+    "verificar:producao": "tsx scripts/verificar-producao.ts",
+    "sonda:ip": "tsx scripts/sonda-ip.ts",
+    "simular:deploy": "bash scripts/simular-deploy-linux.sh",
+    "backup:ensaio": "node scripts/validar-backup-restore.mjs",
+    "test:integracao": "vitest run --config vitest.integracao.config.ts"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.2",
     "@prisma/client": "^6.19.3",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
@@ -34,6 +41,7 @@
     "postcss": "^8.4.40",
     "prisma": "^6.19.3",
     "tailwindcss": "^3.4.7",
+    "tsx": "^4.23.15",
     "typescript": "^5.5.4",
     "vitest": "^2.1.9"
   }

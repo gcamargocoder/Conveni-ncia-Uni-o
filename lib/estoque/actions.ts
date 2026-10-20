@@ -1,5 +1,6 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { registrarMovimentacao } from "@/services/estoque.service";
@@ -21,6 +22,8 @@ export async function registrarMovimentacaoAction(
   dados: Omit<DadosMovimentacao, "funcionario_id">,
   pin: string
 ): Promise<ResultadoAcaoMovimentacao> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const auth = await validarPinAction(pin);
   if (!auth.sucesso || !auth.funcionario) {
     return { sucesso: false, erroGeral: "PIN inválido." };

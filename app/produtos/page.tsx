@@ -7,10 +7,12 @@ import { ProdutoEditarModal } from "@/components/produtos/ProdutoEditarModal";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProdutosPage() {
+  await exigirSessao();
   const [produtos, fornecedores, categorias] = await Promise.all([
     listarProdutos(),
     listarFornecedores(),

@@ -48,6 +48,21 @@ export function possuiPermissao(cargo: Cargo, permissao: Permissao): boolean {
 }
 
 /**
+ * PIN verificável OFFLINE: só para cargos cuja ÚNICA permissão é vender. O verificador
+ * (hash) do PIN é copiado para o aparelho, e um PIN de 4 dígitos é quebrável por quem
+ * extrair esse dado — por isso nunca se replica o PIN de quem pode mais do que vender
+ * (gerente, proprietário, estoquista). Esses cargos validam o PIN no servidor.
+ */
+export function cargoPodeUsarPinOffline(cargo: string): boolean {
+  const permissoes = PERMISSOES_POR_CARGO[cargo as Cargo];
+  return Boolean(permissoes) && permissoes.length > 0 && permissoes.every((p) => p === "pdv.vender");
+}
+
+export function cargosComPinOffline(): Cargo[] {
+  return (Object.keys(PERMISSOES_POR_CARGO) as Cargo[]).filter(cargoPodeUsarPinOffline);
+}
+
+/**
  * Hierarquia de quem pode editar/excluir quem — diferente de
  * "funcionarios.gerenciar" (usada só para CRIAR, hoje restrita ao
  * proprietário). Editar/excluir segue uma regra de hierarquia própria:

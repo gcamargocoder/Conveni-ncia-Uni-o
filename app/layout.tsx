@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { IndicadorConexao } from "@/components/offline/IndicadorConexao";
 import { SincronizacaoInicial } from "@/components/offline/SincronizacaoInicial";
 import { WorkerSincronizacao } from "@/components/offline/WorkerSincronizacao";
@@ -8,6 +10,10 @@ import { AppShell } from "@/components/layout/AppShell";
 import { OperadorProvider } from "@/hooks/useOperadorTurno";
 import { AtualizacaoDisponivel } from "@/components/pwa/AtualizacaoDisponivel";
 import { InstalarAppBotao } from "@/components/pwa/InstalarAppBotao";
+import { SessaoProvider } from "@/components/auth/SessaoProvider";
+import { GuardaSessao } from "@/components/auth/GuardaSessao";
+import { obterSessaoAtual } from "@/lib/auth/servidor";
+import { rotaPublica } from "@/lib/auth/constantes";
 import "./globals.css";
 
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
@@ -56,20 +62,50 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const sessao = await obterSessaoAtual();
+  const cabecalhos = await headers();
+  const caminho = cabecalhos.get("x-pathname") ?? "/";
+  // Cópia "neutra" (pedida só pelo service worker para guardar no cache offline): o HTML não leva
+  // nenhum dado da pessoa logada (nome, e-mail, papel, id, validade da sessão). A interface os obtém
+  // no aparelho (SessaoProvider) a partir do marcador local, que o logout apaga.
+  const neutra = cabecalhos.get("x-pagina-neutra") === "1";
+
+  // Rede de segurança para qualquer rota, inclusive páginas só de cliente:
+  // fora das rotas públicas, sem sessão válida não renderiza nada.
+  if (!sessao && !rotaPublica(caminho.split("?")[0])) {
+    redirect(`/login?next=${encodeURIComponent(caminho)}`);
+  }
+
   return (
     <html lang="pt-BR" className={manrope.variable} suppressHydrationWarning>
       <body className="bg-slate-50 text-slate-900 font-sans" suppressHydrationWarning>
-        <OperadorProvider>
-          <ToastProvider>
-            <SincronizacaoInicial />
-            <WorkerSincronizacao />
-            <IndicadorConexao />
-            <AppShell>{children}</AppShell>
-            <InstalarAppBotao />
-            <AtualizacaoDisponivel />
-          </ToastProvider>
-        </OperadorProvider>
+        <SessaoProvider
+          neutro={neutra}
+          usuario={sessao && !neutra ? { id: sessao.usuario.id, nome: sessao.usuario.nome, email: sessao.usuario.email, papel: sessao.usuario.papel } : null}
+          expiraAbsolutaEm={sessao && !neutra ? sessao.expiraAbsolutaEm.toISOString() : null}
+        >
+          <OperadorProvider>
+            <ToastProvider>
+              {sessao && (
+                <>
+                  <SincronizacaoInicial />
+                  <WorkerSincronizacao />
+                </>
+              )}
+              <IndicadorConexao />
+              {sessao ? (
+                <GuardaSessao>
+                  <AppShell>{children}</AppShell>
+                </GuardaSessao>
+              ) : (
+                <AppShell comMenu={false}>{children}</AppShell>
+              )}
+              <InstalarAppBotao />
+              <AtualizacaoDisponivel />
+            </ToastProvider>
+          </OperadorProvider>
+        </SessaoProvider>
       </body>
     </html>
   );

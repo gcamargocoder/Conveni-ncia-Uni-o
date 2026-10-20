@@ -2,6 +2,7 @@ import { getOfflineDB, ProdutoLocal, CategoriaLocal, EstoqueLocal, FuncionarioLo
 import { obterConfiguracao, definirConfiguracao } from "./configuracao-local.service";
 import { registrarEventoSincronizacao } from "./auditoria-sincronizacao.service";
 import { buscarAlteracoesCatalogoAction, AlteracoesCatalogo } from "@/lib/offline-sync/actions";
+import { sincronizarCredenciaisPin } from "./credenciais-pin-local.service";
 
 const CHAVE_CARIMBO = "ultima_sincronizacao_catalogo";
 const CHAVE_ULTIMA_QTD = "ultima_qtd_produtos_sincronizados";
@@ -48,7 +49,6 @@ export async function aplicarAlteracoesCatalogoLocal(
     id: f.id,
     nome: f.nome,
     cargo: f.cargo,
-    pin_hash: f.pin_hash,
     ativo: f.ativo && !f.deleted_at,
     updated_at: f.updated_at,
   }));
@@ -104,6 +104,8 @@ export async function sincronizarCatalogo(): Promise<ResultadoSincronizacaoCatal
       contagem.produtos + contagem.categorias + contagem.estoque + contagem.funcionarios + contagem.clientes;
 
     await definirConfiguracao(CHAVE_CARIMBO, alteracoes.timestampServidor);
+    // Canal separado: verificadores de PIN offline (só cargos que apenas vendem).
+    await sincronizarCredenciaisPin();
     await definirConfiguracao(CHAVE_ULTIMA_QTD, String(total));
 
     await registrarEventoSincronizacao("fim", {

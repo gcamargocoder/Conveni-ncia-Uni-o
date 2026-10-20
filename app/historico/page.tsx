@@ -1,6 +1,7 @@
 import { listarHistorico } from "@/services/historico.service";
 import { FiltroPeriodoHistorico } from "@/components/historico/FiltroPeriodoHistorico";
 import { HistoricoLista } from "@/components/historico/HistoricoLista";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export default async function HistoricoPage({
 }: {
   searchParams: Promise<{ periodo?: string; de?: string; ate?: string }>;
 }) {
+  await exigirSessao();
   const { periodo: periodoParam, de, ate } = await searchParams;
   const periodo = periodoParam ?? "7dias";
 

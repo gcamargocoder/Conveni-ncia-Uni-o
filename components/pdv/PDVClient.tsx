@@ -19,7 +19,7 @@ import { processarFilaSincronizacao } from "@/services/offline/worker-sincroniza
 import { salvarCarrinhoLocal, carregarCarrinhoLocal, limparCarrinhoLocal } from "@/services/offline/carrinho-local.service";
 import { obterEstoqueLocalPorProduto } from "@/services/offline/estoque-local.service";
 import { registrarEventoAuditoriaLocal } from "@/services/offline/auditoria-local.service";
-import { validarPinLocalmente } from "@/services/offline/pin-local.service";
+import { validarPinParaVenda } from "@/services/offline/pin-venda.service";
 import type { ClienteLocal } from "@/services/offline/db";
 import { FormaPagamento, ProdutoParaVenda } from "@/types/venda";
 import { VendaCompleta } from "@/services/vendas.service";
@@ -86,7 +86,7 @@ export function PDVClient() {
       throw new Error("Selecione um cliente cadastrado antes de finalizar uma venda fiado.");
     }
 
-    const auth = await validarPinLocalmente(pin);
+    const auth = await validarPinParaVenda(pin);
     if (!auth.sucesso || !auth.funcionario) {
       throw new Error(auth.erro ?? "PIN inválido.");
     }

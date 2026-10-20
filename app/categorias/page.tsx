@@ -2,10 +2,12 @@ import { Tags } from "lucide-react";
 import { listarCategorias } from "@/services/categorias.service";
 import { ListaCategorias } from "@/components/categorias/ListaCategorias";
 import { Card } from "@/components/ui/Card";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
 export default async function CategoriasPage() {
+  await exigirSessao();
   const categorias = await listarCategorias();
 
   return (

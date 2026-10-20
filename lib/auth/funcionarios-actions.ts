@@ -1,9 +1,9 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
 import { revalidatePath } from "next/cache";
 import {
   criarFuncionario,
-  listarFuncionarios,
   buscarFuncionarioPorId,
   atualizarFuncionario,
   excluirFuncionario,
@@ -17,6 +17,8 @@ export async function criarFuncionarioAction(
   input: { nome: string; cargo: Cargo; pin: string },
   pinAutorizador: string
 ) {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   const auth = await validarPinAction(pinAutorizador);
   if (!auth.sucesso || !auth.funcionario) {
     return { sucesso: false, erro: "PIN de autorização inválido." };
@@ -43,15 +45,13 @@ export async function criarFuncionarioAction(
   }
 }
 
-export async function listarFuncionariosAction() {
-  return listarFuncionarios();
-}
-
 export async function atualizarFuncionarioAction(
   id: string,
   dados: { nome?: string; cargo?: Cargo; pin?: string },
   pinAutorizador: string
 ) {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   const auth = await validarPinAction(pinAutorizador);
   if (!auth.sucesso || !auth.funcionario) {
     return { sucesso: false, erro: "PIN de autorização inválido." };
@@ -84,6 +84,8 @@ export async function atualizarFuncionarioAction(
 }
 
 export async function excluirFuncionarioAction(id: string, pinAutorizador: string) {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   const auth = await validarPinAction(pinAutorizador);
   if (!auth.sucesso || !auth.funcionario) {
     return { sucesso: false, erro: "PIN de autorização inválido." };

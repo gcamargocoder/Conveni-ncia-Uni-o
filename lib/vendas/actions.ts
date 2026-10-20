@@ -1,7 +1,9 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
 import { headers } from "next/headers";
-import { registrarVenda } from "@/services/vendas.service";
+import { processarVendaRecebida } from "@/services/vendas-sincronizadas.service";
+import { gerarUuid } from "@/lib/utils/uuid";
 import { validarVenda } from "@/lib/vendas/validacao";
 import { ItemCarrinho } from "@/lib/vendas/carrinho";
 import { FormaPagamento } from "@/types/venda";
@@ -20,6 +22,8 @@ export async function finalizarVendaAction(
   formaPagamento: FormaPagamento,
   pin: string
 ): Promise<ResultadoFinalizarVenda> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const erros = validarVenda(itens, formaPagamento);
   if (erros.length > 0) return { sucesso: false, erros };
 
@@ -34,13 +38,24 @@ export async function finalizarVendaAction(
 
   try {
     const dispositivo = (await headers()).get("user-agent") ?? undefined;
-    const resultado = await registrarVenda({
-      funcionario_id: auth.funcionario.id,
-      forma_pagamento: formaPagamento,
-      itens,
-      dispositivo,
-    });
-    return { sucesso: true, vendaId: resultado.id };
+    // Os preços do carrinho vêm do navegador: o servidor confere contra o cadastro.
+    const vendaId = gerarUuid();
+    const resultado = await processarVendaRecebida(
+      vendaId,
+      {
+        funcionario_id: auth.funcionario.id,
+        forma_pagamento: formaPagamento,
+        dispositivo,
+        itens: itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
+      },
+      acesso.sessao.usuario.id
+    );
+    if (resultado.status === "registrada") return { sucesso: true, vendaId };
+    const motivos = resultado.status === "rejeitada" ? [] : resultado.motivos.map((m) => m.mensagem);
+    return {
+      sucesso: false,
+      erroGeral: ["Venda retida para revisão do administrador (os valores não conferem com o cadastro).", ...motivos].join(" "),
+    };
   } catch (e) {
     return { sucesso: false, erroGeral: (e as Error).message };
   }

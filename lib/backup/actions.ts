@@ -1,5 +1,7 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
+
 import { gerarBackupCompleto, restaurarBackup, BackupCompleto, ContagemRestauracao } from "@/services/backup.service";
 
 export interface ResultadoGerarBackup {
@@ -9,6 +11,8 @@ export interface ResultadoGerarBackup {
 }
 
 export async function gerarBackupAction(): Promise<ResultadoGerarBackup> {
+  const acesso = await verificarAcesso("admin");
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   try {
     const backup = await gerarBackupCompleto();
     return { sucesso: true, backup };
@@ -24,6 +28,8 @@ export interface ResultadoRestaurarBackup {
 }
 
 export async function restaurarBackupAction(backup: BackupCompleto): Promise<ResultadoRestaurarBackup> {
+  const acesso = await verificarAcesso("admin");
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   if (!backup || typeof backup !== "object" || !backup.dados) {
     return { sucesso: false, erro: "Arquivo de backup em formato inválido." };
   }

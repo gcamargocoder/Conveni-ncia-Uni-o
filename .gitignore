@@ -3,3 +3,10 @@ node_modules/
 .env.local
 .env*.local
 *.log
+
+# Backups/dumps contêm dados de clientes: nunca versionar
+/backup/
+*.dump
+
+# Cache local do TypeScript
+/tsconfig.tsbuildinfo

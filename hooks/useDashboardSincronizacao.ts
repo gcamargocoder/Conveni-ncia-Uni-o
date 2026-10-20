@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { contarPendentes, contarComErro, contarSincronizados, listarPendentes } from "@/services/offline/fila-sincronizacao.service";
+import { contarPendentes, contarComErro, contarSincronizados, listarPendentes, listarRetidas } from "@/services/offline/fila-sincronizacao.service";
 import { contarConflitosResolvidos, listarAuditoriaLocal } from "@/services/offline/auditoria-local.service";
 import { obterUltimaSincronizacaoFila } from "@/services/offline/worker-sincronizacao.service";
 import { useStatusSincronizacaoCatalogo } from "./useStatusSincronizacaoCatalogo";
@@ -27,7 +27,7 @@ export function useDashboardSincronizacao() {
   const dados = useLiveQuery<DadosDashboardSincronizacao | undefined>(async () => {
     if (typeof indexedDB === "undefined") return undefined;
 
-    const [pendentes, comErro, sincronizados, conflitosResolvidos, ultimaSincronizacaoFila, filaAtual, ultimosEventos] =
+    const [pendentes, comErro, sincronizados, conflitosResolvidos, ultimaSincronizacaoFila, filaPendente, retidas, ultimosEventos] =
       await Promise.all([
         contarPendentes(),
         contarComErro(),
@@ -35,10 +35,11 @@ export function useDashboardSincronizacao() {
         contarConflitosResolvidos(),
         obterUltimaSincronizacaoFila(),
         listarPendentes(),
+        listarRetidas(),
         listarAuditoriaLocal(20),
       ]);
 
-    return { pendentes, comErro, sincronizados, conflitosResolvidos, ultimaSincronizacaoFila, filaAtual, ultimosEventos };
+    return { pendentes, comErro, sincronizados, conflitosResolvidos, ultimaSincronizacaoFila, filaAtual: [...filaPendente, ...retidas], ultimosEventos };
   }, []);
 
   return { status, tempoConectividade, statusCatalogo, dados };

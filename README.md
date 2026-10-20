@@ -29,6 +29,7 @@ telas.
 
 ## Segurança (ver AUDITORIA.md para detalhes)
 
+- **Todo o sistema exige login** (e-mail + senha, Argon2id, sessões em banco, bloqueio progressivo de tentativas, recuperação por e-mail) — veja **AUTENTICACAO.md**. O PIN continua sendo a identificação do operador e a autorização de operações sensíveis.
 - **O banco só é acessível pelo servidor**: o navegador nunca recebe `DATABASE_URL` nem fala com o Postgres; todo acesso passa por Server Actions/Server Components.
 - **PIN protegido contra força bruta**: bloqueio de 15 min após 5 tentativas falhas por origem (tabela `tentativas_pin`).
 - `.env.local` nunca vai para o Git (`.gitignore`).
@@ -76,10 +77,11 @@ Isso é proposital: cada próxima etapa vai plugar um módulo de cada vez.
 
 
 1. Tenha um PostgreSQL (local ou Railway)
-2. Copie `.env.example` para `.env.local` e preencha `DATABASE_URL`
+2. Copie `.env.example` para `.env.local` e preencha `DATABASE_URL` (e, para a recuperação de senha, `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM`)
 3. `npm install` (gera o Prisma Client) e `npm run db:migrate` (aplica `prisma/migrations`)
-4. `npm run dev`
-5. `npm run test` roda a suíte de testes automatizados
+4. `npm run admin:criar -- --email voce@empresa.com --nome "Seu Nome"` (cria o primeiro administrador; não há cadastro público nem senha padrão)
+5. `npm run dev` e entre em `/login`
+6. `npm run test` roda a suíte de testes automatizados (`npm run test:integracao` roda os testes de autenticação contra um PostgreSQL de teste)
 
 ## Offline First — Fase 2: catálogo local-first
 
@@ -222,5 +224,7 @@ Testes desta fase: `services/offline/__tests__/integridade.test.ts`,
 
 1. Crie um projeto no Railway, adicione o plugin **PostgreSQL** e o serviço do app (repositório GitHub).
 2. No serviço do app, crie a variável `DATABASE_URL` com o valor `${{Postgres.DATABASE_URL}}`.
-3. O build roda `prisma generate && next build`; o start roda `prisma migrate deploy && next start` (aplica as migrations automaticamente).
-4. Para trazer dados de um banco antigo, use a tela **Backup** (gerar no ambiente antigo, restaurar no novo).
+3. Cadastre também `APP_URL`, `RESEND_API_KEY` e `EMAIL_FROM` (ver AUTENTICACAO.md).
+4. O build roda `prisma generate && next build`; o start roda `prisma migrate deploy && next start` (aplica as migrations automaticamente).
+5. Crie o primeiro administrador com `npm run admin:criar` (ver AUTENTICACAO.md) antes do primeiro acesso.
+6. Para trazer dados de um banco antigo, use a tela **Backup** (gerar no ambiente antigo, restaurar no novo).

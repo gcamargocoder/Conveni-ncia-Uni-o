@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#213E8C">
+<title>Sem conexão — Conveniência União</title>
+<!--
+  Tela de fallback do service worker quando não há rede. É um arquivo ESTÁTICO e autossuficiente de
+  propósito: sem Next.js, sem layout, sem chunks, sem otimizador de imagens, sem fontes externas. Assim abre
+  mesmo desconectado, nunca depende de recurso que possa não estar em cache e não carrega nenhum
+  dado da sessão nem do negócio (a única leitura local é a contagem de pendências da fila, só leitura).
+-->
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100vh}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:48px 24px;background:#213E8C;color:#fff;text-align:center;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  img{width:72px;height:72px;border-radius:16px}
+  h1{margin:0;font-size:20px}
+  .sub{margin:4px 0 0;font-size:14px;opacity:.85}
+  .pilula{display:flex;align-items:center;gap:8px;border-radius:999px;background:rgba(255,255,255,.12);padding:8px 16px;font-size:14px}
+  .ponto{width:10px;height:10px;border-radius:50%;background:#fbbf24}
+  .nota{margin:0;max-width:320px;font-size:12px;opacity:.85;line-height:1.5}
+  #pend{margin:0;font-size:14px;opacity:.85}
+  a.botao{margin-top:8px;border-radius:8px;background:#fff;color:#213E8C;font-weight:600;font-size:14px;padding:10px 20px;text-decoration:none}
+</style>
+</head>
+<body>
+  <img src="/logo-auto-posto-uniao.jpeg" width="72" height="72" alt="Auto Posto União">
+  <div>
+    <h1>Conveniência União</h1>
+    <p class="sub">Sistema funcionando offline</p>
+  </div>
+  <div class="pilula"><span class="ponto"></span><span id="status">Tentando reconectar...</span></div>
+  <p id="pend" hidden></p>
+  <p class="nota">Suas vendas e movimentações continuam funcionando normalmente — tudo é salvo neste dispositivo e sincroniza automaticamente assim que a conexão voltar.</p>
+  <a class="botao" href="/pdv">Ir para o PDV</a>
+<script>
+(function () {
+  var status = document.getElementById("status");
+  var pend = document.getElementById("pend");
+  var agendado = false;
+
+  function atualizar() {
+    if (navigator.onLine) {
+      status.textContent = "Reconectado — voltando...";
+      if (!agendado) {
+        agendado = true;
+        setTimeout(function () { agendado = false; if (navigator.onLine) window.location.href = "/pdv"; }, 1200);
+      }
+    } else {
+      status.textContent = "Tentando reconectar...";
+    }
+  }
+  window.addEventListener("online", atualizar);
+  window.addEventListener("offline", atualizar);
+  atualizar();
+
+  // Operações aguardando sincronizar: leitura somente-leitura do IndexedDB do app, só se ele já existir
+  // (nunca cria o banco e nunca altera a fila).
+  try {
+    if (!window.indexedDB || !indexedDB.databases) return;
+    indexedDB.databases().then(function (lista) {
+      if (!lista.some(function (d) { return d.name === "convenience-saas-offline"; })) return;
+      var abrir = indexedDB.open("convenience-saas-offline");
+      abrir.onsuccess = function () {
+        var db = abrir.result;
+        try {
+          if (!db.objectStoreNames.contains("fila_sincronizacao")) { db.close(); return; }
+          var tx = db.transaction("fila_sincronizacao", "readonly");
+          var indice = tx.objectStore("fila_sincronizacao").index("status");
+          var total = 0, restantes = 2;
+          ["pendente", "erro"].forEach(function (s) {
+            var c = indice.count(IDBKeyRange.only(s));
+            c.onsuccess = function () {
+              total += c.result;
+              if (--restantes === 0) {
+                db.close();
+                if (total > 0) { pend.textContent = total + " operação(ões) aguardando sincronizar."; pend.hidden = false; }
+              }
+            };
+            c.onerror = function () { db.close(); };
+          });
+        } catch (e) { db.close(); }
+      };
+    }).catch(function () {});
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

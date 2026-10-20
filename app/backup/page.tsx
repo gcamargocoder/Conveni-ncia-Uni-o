@@ -1,8 +1,10 @@
 import { PainelBackup } from "@/components/backup/PainelBackup";
+import { exigirAdmin } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
-export default function BackupPage() {
+export default async function BackupPage() {
+  await exigirAdmin();
   return (
     <main className="max-w-2xl mx-auto px-6 py-8 flex flex-col gap-6">
       <header>

@@ -2,10 +2,12 @@ import { Receipt } from "lucide-react";
 import { listarDevedores } from "@/services/contas-receber.service";
 import { ListaDevedores } from "@/components/contas-receber/ListaDevedores";
 import { Card } from "@/components/ui/Card";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContasReceberPage() {
+  await exigirSessao();
   const devedores = await listarDevedores();
 
   return (

@@ -147,6 +147,7 @@ describe("processarFilaSincronizacao — fila vazia", () => {
       falha: 0,
       conflitosResolvidos: 0,
       ignoradosPorBackoff: 0,
+      retidas: 0,
     });
   });
 });

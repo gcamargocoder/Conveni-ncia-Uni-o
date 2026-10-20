@@ -1,10 +1,12 @@
 import { listarEstoqueAtual } from "@/services/estoque.service";
 import { ListaEstoque } from "@/components/estoque/ListaEstoque";
 import { Card } from "@/components/ui/Card";
+import { exigirSessao } from "@/lib/auth/servidor";
 
 export const dynamic = "force-dynamic";
 
 export default async function EstoquePage() {
+  await exigirSessao();
   const estoque = await listarEstoqueAtual();
 
   return (

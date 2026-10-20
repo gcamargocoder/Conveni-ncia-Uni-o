@@ -1,5 +1,6 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
 import { revalidatePath } from "next/cache";
 import { criarProduto, atualizarProduto, desativarProduto } from "@/services/produtos.service";
 import { validarProduto, DadosProduto } from "@/lib/produtos/validacao";
@@ -16,6 +17,8 @@ function normalizarCodigoBarras(dados: DadosProduto): DadosProduto {
 }
 
 export async function criarProdutoAction(dados: DadosProduto): Promise<ResultadoAcaoProduto> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const dadosNormalizados = normalizarCodigoBarras(dados);
   const erros = validarProduto(dadosNormalizados);
   if (erros.length > 0) return { sucesso: false, erros };
@@ -33,6 +36,8 @@ export async function atualizarProdutoAction(
   id: string,
   dados: DadosProduto
 ): Promise<ResultadoAcaoProduto> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const dadosNormalizados = normalizarCodigoBarras(dados);
   const erros = validarProduto(dadosNormalizados);
   if (erros.length > 0) return { sucesso: false, erros };
@@ -47,6 +52,8 @@ export async function atualizarProdutoAction(
 }
 
 export async function desativarProdutoAction(id: string): Promise<ResultadoAcaoProduto> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   try {
     await desativarProduto(id);
     revalidatePath("/produtos");
@@ -63,6 +70,8 @@ export async function desativarProdutoAction(id: string): Promise<ResultadoAcaoP
  * completo de novo só para corrigir um nome.
  */
 export async function renomearProdutoAction(id: string, novoNome: string): Promise<ResultadoAcaoProduto> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   const nome = novoNome.trim();
   if (nome.length < 2) {
     return { sucesso: false, erros: [{ campo: "nome", mensagem: "Nome deve ter pelo menos 2 caracteres." }] };
@@ -86,6 +95,8 @@ export async function renomearProdutoAction(id: string, novoNome: string): Promi
  * produto específico (ex: um item que vende muito rápido).
  */
 export async function ajustarEstoqueMinimoAction(id: string, novoMinimo: number): Promise<ResultadoAcaoProduto> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
   if (novoMinimo < 0 || !Number.isFinite(novoMinimo)) {
     return { sucesso: false, erros: [{ campo: "estoque_minimo", mensagem: "Valor inválido." }] };
   }

@@ -1,9 +1,12 @@
 "use server";
 
+import { verificarAcesso } from "@/lib/auth/servidor";
 import { revalidatePath } from "next/cache";
 import { criarCategoria, atualizarCategoria, excluirCategoria } from "@/services/categorias.service";
 
 export async function criarCategoriaAction(nome: string) {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   if (!nome || nome.trim().length < 2) {
     return { sucesso: false, erro: "Nome deve ter pelo menos 2 caracteres." };
   }
@@ -19,6 +22,8 @@ export async function criarCategoriaAction(nome: string) {
 }
 
 export async function atualizarCategoriaAction(id: string, nome: string) {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   if (!nome || nome.trim().length < 2) {
     return { sucesso: false, erro: "Nome deve ter pelo menos 2 caracteres." };
   }
@@ -34,6 +39,8 @@ export async function atualizarCategoriaAction(id: string, nome: string) {
 }
 
 export async function excluirCategoriaAction(id: string) {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
   try {
     await excluirCategoria(id);
     revalidatePath("/produtos");

@@ -7,7 +7,7 @@ import { Sidebar } from "./Sidebar";
 
 const CHAVE_COLAPSADA = "sidebar-colapsada";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, comMenu = true }: { children: React.ReactNode; comMenu?: boolean }) {
   const [colapsada, setColapsada] = useState(false);
   const [abertaMobile, setAbertaMobile] = useState(false);
 
@@ -22,6 +22,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return !atual;
     });
   }
+
+  // Telas públicas (login, recuperação de senha) não mostram o menu do sistema.
+  if (!comMenu) return <>{children}</>;
 
   return (
     <div className="flex min-h-screen">
