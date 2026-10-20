@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Variáveis de marca e superfícies escurecidas (ainda não usadas pelos componentes) */
+  --bg-main: #020203;
+  --bg-surface: #0d0d0d;
+  --bg-elevated: #171717;
+  --border-hairline: #1f1f1f;
+
+  --brand-blue: #2563eb;
+  --brand-blue-hover: #1d4ed8;
+  --brand-orange: #f97316;
+  --status-online: #10b981;
+}
+
 @layer base {
   * {
     @apply border-slate-200;
@@ -74,4 +87,23 @@
   .print-only {
     display: none;
   }
+}
+
+/* Barra de rolagem minimalista */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

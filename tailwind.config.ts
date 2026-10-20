@@ -22,6 +22,20 @@ const config: Config = {
           50: "#FEF3E7",
           600: "#D9720F",
         },
+        // Paleta escura (GC-Sys): ainda não usada pelos componentes.
+        surface: {
+          DEFAULT: "#0d0d0d",
+          elevated: "#171717",
+          border: "#1f1f1f",
+        },
+        "brand-blue": {
+          DEFAULT: "#2563eb",
+          hover: "#1d4ed8",
+        },
+        "brand-orange": {
+          DEFAULT: "#f97316",
+        },
+        matrix: "#10b981",
         // Cores semânticas — cada uma com um único propósito, nunca
         // usadas decorativamente (evita "excesso de cores").
         success: { 50: "#F0FDF4", 600: "#16A34A", 700: "#15803D" },
