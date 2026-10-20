@@ -49,4 +49,11 @@ select extname from pg_extension where extname in ('pgcrypto', 'pg_trgm') order 
 select '## sequências';
 select sequencename from pg_sequences where schemaname = 'public' order by 1;
 
+select '## sequências (valor atual)';
+select sequencename || ' | ' || coalesce(last_value::text, 'null') from pg_sequences where schemaname = 'public' order by 1;
+
+select '## tipos (enums e domínios)';
+select t.typname || ' | ' || t.typtype::text || ' | ' || coalesce((select string_agg(e.enumlabel, ',' order by e.enumsortorder) from pg_enum e where e.enumtypid = t.oid), '-')
+from pg_type t where t.typnamespace = 'public'::regnamespace and t.typtype in ('e', 'd') order by 1;
+
 commit;
