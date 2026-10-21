@@ -107,13 +107,13 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
       <aside
         className={`
           fixed md:static inset-y-0 left-0 z-50 md:z-0
-          flex flex-col bg-white border-r border-slate-200 w-64
+          flex flex-col bg-surface border-r border-surface-border w-64
           transition-transform duration-200 md:transition-[width]
           ${abertaMobile ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
           ${colapsada ? "md:w-[72px]" : "md:w-64"}
         `}
       >
-        <div className="flex items-center gap-2 h-16 px-4 border-b border-slate-100 shrink-0">
+        <div className="flex items-center gap-2 h-16 px-4 border-b border-surface-border shrink-0">
           <Link href="/pdv" className="flex items-center gap-3 min-w-0 flex-1">
             <Image
               src="/logo-auto-posto-uniao.jpeg"
@@ -122,13 +122,13 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
               height={32}
               className="rounded-md shrink-0"
             />
-            {!colapsada && <span className="font-semibold text-sm text-slate-900 truncate">Auto Posto União</span>}
+            {!colapsada && <span className="font-semibold text-sm text-white truncate">Auto Posto União</span>}
           </Link>
 
           <button
             onClick={onToggleColapsar}
             aria-label={colapsada ? "Expandir menu" : "Retrair menu"}
-            className="hidden md:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 shrink-0 transition-colors"
+            className="hidden md:flex items-center justify-center w-7 h-7 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800/30 shrink-0 transition-colors duration-150"
           >
             {colapsada ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
@@ -136,7 +136,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
           <button
             onClick={onFecharMobile}
             aria-label="Fechar menu"
-            className="md:hidden text-slate-400 shrink-0"
+            className="md:hidden text-zinc-400 hover:text-white shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -146,7 +146,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
           {grupos.map((grupo) => (
             <div key={grupo.rotulo}>
               {!colapsada && (
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-3 mb-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 px-3 mb-1.5">
                   {grupo.rotulo}
                 </p>
               )}
@@ -160,16 +160,16 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
                       href={item.href}
                       onClick={onFecharMobile}
                       title={colapsada ? item.titulo : undefined}
-                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${ativo
-                          ? "bg-brand-50 text-brand-700 font-semibold"
-                          : "text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900"
+                      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${ativo
+                          ? "bg-zinc-800/50 text-white font-semibold"
+                          : "text-zinc-400 font-medium hover:bg-zinc-800/30 hover:text-white"
                         }`}
                     >
                       {ativo && (
-                        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-brand-700" />
+                        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-brand-blue" />
                       )}
                       <Icone
-                        className={`w-4 h-4 shrink-0 transition-colors ${ativo ? "text-brand-700" : "text-slate-400 group-hover:text-slate-600"
+                        className={`w-4 h-4 shrink-0 transition-colors duration-150 ${ativo ? "text-brand-blue" : "text-zinc-500 group-hover:text-white"
                           }`}
                       />
                       {!colapsada && item.titulo}
@@ -183,11 +183,11 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
         </nav>
 
         {usuario && (
-          <div className="flex items-center gap-2 px-3 py-3 border-t border-slate-100 shrink-0">
+          <div className="flex items-center gap-2 px-3 py-3 border-t border-surface-border shrink-0">
             {!colapsada && (
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-900 truncate">{usuario.nome}</p>
-                <p className="text-xs text-slate-400 truncate">{ehAdmin ? "Administrador" : "Operador"}</p>
+                <p className="text-sm font-semibold text-white truncate">{usuario.nome}</p>
+                <p className="text-xs text-zinc-500 truncate">{ehAdmin ? "Administrador" : "Operador"}</p>
               </div>
             )}
             <BotaoSair colapsada={colapsada} />
@@ -199,7 +199,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
           target="_blank"
           rel="noopener noreferrer"
           title="Desenvolvido por GC-Sys"
-          className="flex items-center gap-2 h-14 px-4 border-t border-slate-100 shrink-0 text-slate-400 hover:text-slate-600 transition-colors"
+          className="flex items-center gap-2 h-14 px-4 border-t border-surface-border shrink-0 text-zinc-500 hover:text-zinc-300 transition-colors duration-150"
         >
           {!colapsada && <span className="text-xs shrink-0">Desenvolvido por</span>}
           <img src="/logos/gc-sys-logo-horizontal.png" alt="GC-Sys" className="h-6 w-auto shrink-0" />

@@ -38,9 +38,13 @@ export function AppShell({ children, comMenu = true }: { children: React.ReactNo
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="no-print md:hidden sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-slate-200 bg-white shrink-0">
-          <button onClick={() => setAbertaMobile(true)} aria-label="Abrir menu">
-            <Menu className="w-5 h-5 text-slate-600" />
+        <div className="no-print md:hidden sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-surface-border bg-surface shrink-0">
+          <button
+            onClick={() => setAbertaMobile(true)}
+            aria-label="Abrir menu"
+            className="flex items-center justify-center w-8 h-8 -ml-1 rounded-md text-brand-blue hover:bg-zinc-800/40 hover:text-white transition-colors duration-150"
+          >
+            <Menu className="w-5 h-5" />
           </button>
           <Image
             src="/logo-auto-posto-uniao.jpeg"
@@ -49,7 +53,7 @@ export function AppShell({ children, comMenu = true }: { children: React.ReactNo
             height={24}
             className="rounded"
           />
-          <span className="font-semibold text-sm text-slate-900">Auto Posto União</span>
+          <span className="font-semibold text-sm text-white">Auto Posto União</span>
         </div>
 
         <div className="flex-1">{children}</div>
