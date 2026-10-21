@@ -57,7 +57,7 @@ export default function SincronizacaoPage() {
 
         <Card className="flex items-center gap-4">
           <div className="w-11 h-11 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-brand-700" />
+            <Clock className="w-5 h-5 text-brand-600" />
           </div>
           <div>
             <p className="text-xs font-medium text-slate-500 tracking-wide">Tempo nesta sessão</p>
@@ -90,7 +90,7 @@ export default function SincronizacaoPage() {
 
       <Card>
         <div className="flex items-center gap-2 mb-3">
-          <CheckCircle2 className="w-4 h-4 text-brand-700" />
+          <CheckCircle2 className="w-4 h-4 text-brand-600" />
           <h2 className="text-sm font-semibold text-slate-700">Última sincronização</h2>
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -107,11 +107,11 @@ export default function SincronizacaoPage() {
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <ListOrdered className="w-4 h-4 text-brand-700" />
+          <ListOrdered className="w-4 h-4 text-brand-600" />
           <h2 className="text-sm font-semibold text-slate-700">Fila atual</h2>
         </div>
         {!dados || dados.filaAtual.length === 0 ? (
-          <EmptyState icone={GitMerge} titulo="Nenhuma operação pendente" descricao="Tudo sincronizado." />
+          <EmptyState icone={GitMerge} modulo="sincronizacao" titulo="Nenhuma operação pendente" descricao="Tudo sincronizado." />
         ) : (
           <table className="w-full text-left border-collapse">
             <thead>
@@ -145,11 +145,11 @@ export default function SincronizacaoPage() {
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <History className="w-4 h-4 text-brand-700" />
+          <History className="w-4 h-4 text-brand-600" />
           <h2 className="text-sm font-semibold text-slate-700">Últimos eventos</h2>
         </div>
         {!dados || dados.ultimosEventos.length === 0 ? (
-          <EmptyState icone={History} titulo="Nenhum evento registrado ainda" />
+          <EmptyState icone={History} modulo="sincronizacao" titulo="Nenhum evento registrado ainda" />
         ) : (
           <ul className="flex flex-col divide-y divide-slate-50 px-5 pb-5">
             {dados.ultimosEventos.map((e) => (

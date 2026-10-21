@@ -67,8 +67,8 @@ const GRUPOS: GrupoMenu[] = [
       { href: "/dashboard", titulo: "Dashboard", icone: LayoutDashboard, cor: "text-sky-500" },
       { href: "/relatorios", titulo: "Relatórios", icone: FileBarChart2, cor: "text-purple-500" },
       { href: "/historico", titulo: "Histórico", icone: History, cor: "text-indigo-500" },
-      { href: "/sincronizacao", titulo: "Sincronização", icone: RefreshCw, cor: "text-blue-500" },
-      { href: "/backup", titulo: "Backup", icone: DatabaseBackup, cor: "text-lime-600", somenteAdmin: true },
+      { href: "/sincronizacao", titulo: "Sincronização", icone: RefreshCw, cor: "text-brand-600" },
+      { href: "/backup", titulo: "Backup", icone: DatabaseBackup, cor: "text-lime-500", somenteAdmin: true },
     ],
   },
   {
@@ -167,7 +167,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
                           : "text-slate-600 font-medium hover:bg-slate-100 hover:text-slate-900"
                         }`}
                     >
-                      <Icone className={`w-4 h-4 shrink-0 ${item.cor}`} />
+                      <Icone className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110 ${item.cor}`} />
                       {!colapsada && item.titulo}
                       {item.href === "/vendas-revisao" && <IndicadorRevisao colapsada={colapsada} />}
                     </Link>

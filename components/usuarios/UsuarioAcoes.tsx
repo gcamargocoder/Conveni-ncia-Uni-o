@@ -51,7 +51,7 @@ export function UsuarioAcoes({ usuario, souEu }: { usuario: UsuarioListado; souE
             )
           }
         >
-          <KeyRound className="w-4 h-4" />
+          <KeyRound className="w-4 h-4 text-violet-500" />
           Redefinir acesso
         </Button>
       )}
@@ -69,7 +69,7 @@ export function UsuarioAcoes({ usuario, souEu }: { usuario: UsuarioListado; souE
             )
           }
         >
-          <ShieldCheck className="w-4 h-4" />
+          <ShieldCheck className="w-4 h-4 text-violet-500" />
           Tornar admin
         </Button>
       ) : (
@@ -79,7 +79,7 @@ export function UsuarioAcoes({ usuario, souEu }: { usuario: UsuarioListado; souE
           disabled={ocupado}
           onClick={() => executar(() => alterarPapelUsuarioAction(usuario.id, "operador"), "Agora é operador.")}
         >
-          <ShieldOff className="w-4 h-4" />
+          <ShieldOff className="w-4 h-4 text-violet-500" />
           Tornar operador
         </Button>
       )}
@@ -108,7 +108,7 @@ export function UsuarioAcoes({ usuario, souEu }: { usuario: UsuarioListado; souE
           disabled={ocupado}
           onClick={() => executar(() => alterarAtivoUsuarioAction(usuario.id, true), "Usuário reativado.")}
         >
-          <UserCheck className="w-4 h-4" />
+          <UserCheck className="w-4 h-4 text-emerald-500" />
           Reativar
         </Button>
       )}

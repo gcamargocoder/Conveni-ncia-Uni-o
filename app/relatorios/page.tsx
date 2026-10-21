@@ -58,7 +58,7 @@ export default async function RelatoriosPage({
       <Card className="no-print">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-brand-700" />
+            <Receipt className="w-4 h-4 text-amber-500" />
             <h2 className="text-sm font-semibold text-slate-700">Faturamento por forma de pagamento</h2>
           </div>
           <div className="flex gap-1.5">
@@ -87,13 +87,14 @@ export default async function RelatoriosPage({
           dados={resumo}
           chaveLinha={(r) => r.forma_pagamento}
           vazioIcone={Receipt}
+          vazioModulo="contasReceber"
           vazioTitulo="Nenhuma venda no período"
         />
       </Card>
 
       <Card semPadding className="no-print">
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <ShoppingBag className="w-4 h-4 text-brand-700" />
+          <ShoppingBag className="w-4 h-4 text-teal-500" />
           <h2 className="text-sm font-semibold text-slate-700">Vendas do período</h2>
         </div>
         <Table
@@ -123,13 +124,14 @@ export default async function RelatoriosPage({
           dados={vendas}
           chaveLinha={(v) => v.id}
           vazioIcone={ShoppingBag}
+          vazioModulo="pdv"
           vazioTitulo="Nenhuma venda no período"
         />
       </Card>
 
       <Card semPadding className="no-print">
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <Boxes className="w-4 h-4 text-brand-700" />
+          <Boxes className="w-4 h-4 text-emerald-500" />
           <h2 className="text-sm font-semibold text-slate-700">Estoque completo</h2>
         </div>
         <Table
@@ -156,6 +158,7 @@ export default async function RelatoriosPage({
           dados={estoque}
           chaveLinha={(e) => e.produto_id}
           vazioIcone={Boxes}
+          vazioModulo="estoque"
           vazioTitulo="Nenhum produto cadastrado ainda"
         />
       </Card>
@@ -163,7 +166,7 @@ export default async function RelatoriosPage({
       <Card semPadding className="no-print">
         <div className="flex items-center justify-between px-5 pt-5 mb-1">
           <div className="flex items-center gap-2">
-            <HandCoins className="w-4 h-4 text-brand-700" />
+            <HandCoins className="w-4 h-4 text-amber-500" />
             <h2 className="text-sm font-semibold text-slate-700">
               Clientes fiado pendentes — total R$ {totalFiadoPendente.toFixed(2)}
             </h2>
@@ -200,6 +203,7 @@ export default async function RelatoriosPage({
           dados={contasPendentes}
           chaveLinha={(c) => c.id}
           vazioIcone={HandCoins}
+          vazioModulo="contasReceber"
           vazioTitulo="Nenhuma conta fiado em aberto"
         />
       </Card>

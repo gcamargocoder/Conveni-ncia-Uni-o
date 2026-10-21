@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ProdutoForm } from "./ProdutoForm";
 import type { Produto } from "@/types/produto";
+import { BotaoAcaoTabela } from "@/components/ui/BotaoAcaoTabela";
 
 interface ProdutoEditarModalProps {
   produto: Produto;
@@ -17,13 +18,9 @@ export function ProdutoEditarModal({ produto, categorias, fornecedores }: Produt
 
   return (
     <>
-      <button
-        onClick={() => setAberto(true)}
-        className="flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-brand-700 hover:bg-brand-100 text-sm font-medium transition-colors"
-      >
-        <Pencil className="w-3.5 h-3.5" />
+      <BotaoAcaoTabela tipo="editar" icone={Pencil} onClick={() => setAberto(true)}>
         Editar
-      </button>
+      </BotaoAcaoTabela>
 
       <Modal aberto={aberto} titulo={`Editar — ${produto.nome}`} onFechar={() => setAberto(false)}>
         <ProdutoForm

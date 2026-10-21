@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/Alert";
 import { useToast } from "@/components/ui/ToastProvider";
 import { atualizarCategoriaAction, excluirCategoriaAction } from "@/lib/produtos/categorias-actions";
 import type { Categoria } from "@/services/categorias.service";
+import { BotaoAcaoTabela } from "@/components/ui/BotaoAcaoTabela";
 
 interface CategoriaEditarModalProps {
   categoria: Categoria;
@@ -55,13 +56,9 @@ export function CategoriaEditarModal({ categoria }: CategoriaEditarModalProps) {
 
   return (
     <>
-      <button
-        onClick={() => setAberto(true)}
-        className="flex items-center gap-1.5 text-brand-700 hover:underline text-sm font-medium"
-      >
-        <Pencil className="w-3.5 h-3.5" />
+      <BotaoAcaoTabela tipo="editar" icone={Pencil} onClick={() => setAberto(true)}>
         Editar
-      </button>
+      </BotaoAcaoTabela>
 
       <Modal aberto={aberto} titulo={`Editar — ${categoria.nome}`} onFechar={() => setAberto(false)}>
         <div className="flex flex-col gap-4">

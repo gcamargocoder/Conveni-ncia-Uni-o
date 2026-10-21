@@ -19,7 +19,7 @@ export default async function ContasReceberPage() {
 
       <Card semPadding className="print:border-0 print:shadow-none">
         <div className="flex items-center gap-2 px-5 pt-1 mb-1 no-print">
-          <Receipt className="w-4 h-4 text-brand-700" />
+          <Receipt className="w-4 h-4 text-amber-500" />
           <h2 className="text-sm font-semibold text-slate-700">Clientes ({devedores.length})</h2>
         </div>
         <ListaDevedores devedores={devedores} />

@@ -59,7 +59,7 @@ export function ImpressaoRelatorios({
     <>
       <div className="no-print">
         <Button variante="secondary" tamanho="sm" onClick={() => setEscolhendo(true)}>
-          <Printer className="w-3.5 h-3.5" />
+          <Printer className="w-3.5 h-3.5 text-purple-500" />
           Imprimir Relatório
         </Button>
       </div>

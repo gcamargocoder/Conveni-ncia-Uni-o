@@ -27,7 +27,7 @@ export function ListaEstoque({ estoque }: ListaEstoqueProps) {
     <div className="flex flex-col gap-4">
       <div className="no-print flex flex-col sm:flex-row sm:items-center gap-3 px-5 pt-5">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
           <input
             placeholder="Procurar produto..."
             value={busca}
@@ -36,7 +36,7 @@ export function ListaEstoque({ estoque }: ListaEstoqueProps) {
           />
         </div>
         <Button variante="secondary" tamanho="sm" onClick={imprimir}>
-          <Printer className="w-3.5 h-3.5" />
+          <Printer className="w-3.5 h-3.5 text-emerald-500" />
           Imprimir Estoque
         </Button>
       </div>
@@ -73,6 +73,7 @@ export function ListaEstoque({ estoque }: ListaEstoqueProps) {
           dados={filtrado}
           chaveLinha={(e) => e.produto_id}
           vazioIcone={Boxes}
+          vazioModulo="estoque"
           vazioTitulo={termo ? "Nenhum produto encontrado" : "Nenhum produto no estoque ainda"}
         />
       </div>

@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { desativarClienteAction, excluirClienteAction } from "@/lib/clientes/actions";
 import { ClienteForm } from "./ClienteForm";
 import type { Cliente } from "@/types/cliente";
+import { BotaoAcaoTabela } from "@/components/ui/BotaoAcaoTabela";
 
 interface ClienteEditarModalProps {
   cliente: Cliente;
@@ -51,13 +52,9 @@ export function ClienteEditarModal({ cliente }: ClienteEditarModalProps) {
 
   return (
     <>
-      <button
-        onClick={() => setAberto(true)}
-        className="flex items-center gap-1.5 text-brand-700 hover:underline text-sm font-medium"
-      >
-        <Pencil className="w-3.5 h-3.5" />
+      <BotaoAcaoTabela tipo="editar" icone={Pencil} onClick={() => setAberto(true)}>
         Editar
-      </button>
+      </BotaoAcaoTabela>
 
       <Modal aberto={aberto} titulo={`Editar — ${cliente.nome}`} onFechar={() => setAberto(false)}>
         <div className="flex flex-col gap-6">

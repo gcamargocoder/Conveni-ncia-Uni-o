@@ -89,7 +89,7 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
       <div className="no-print flex flex-col gap-3 px-5 pt-5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
             <input
               placeholder="Procurar por cliente..."
               value={busca}
@@ -109,7 +109,7 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
             ))}
           </select>
           <Button variante="secondary" tamanho="sm" onClick={imprimir} className="w-full sm:w-auto justify-center">
-            <Printer className="w-3.5 h-3.5" />
+            <Printer className="w-3.5 h-3.5 text-amber-500" />
             Imprimir Relatório
           </Button>
         </div>
@@ -202,6 +202,7 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
           dados={filtradoEOrdenado}
           chaveLinha={(d) => d.cliente_id}
           vazioIcone={Users}
+          vazioModulo="contasReceber"
           vazioTitulo={busca || filtroStatus !== "todos" || filtroUrgencia !== "todos" ? "Nenhum cliente encontrado" : "Nenhum cliente fiado ainda"}
         />
       </div>

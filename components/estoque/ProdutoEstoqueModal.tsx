@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { renomearProdutoAction, ajustarEstoqueMinimoAction } from "@/lib/produtos/actions";
 import { MovimentacaoForm } from "./MovimentacaoForm";
+import { BotaoAcaoTabela } from "@/components/ui/BotaoAcaoTabela";
 
 interface ProdutoEstoqueModalProps {
   produtoId: string;
@@ -49,13 +50,9 @@ export function ProdutoEstoqueModal({ produtoId, produtoNome, estoqueMinimo }: P
 
   return (
     <>
-      <button
-        onClick={() => setAberto(true)}
-        className="flex items-center gap-1.5 text-brand-700 hover:underline text-sm font-medium"
-      >
-        <Pencil className="w-3.5 h-3.5" />
+      <BotaoAcaoTabela tipo="editarVerde" icone={Pencil} onClick={() => setAberto(true)}>
         Editar
-      </button>
+      </BotaoAcaoTabela>
 
       <Modal aberto={aberto} titulo={`Editar — ${produtoNome}`} onFechar={() => setAberto(false)}>
         <div className="flex flex-col gap-6">

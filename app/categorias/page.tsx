@@ -19,7 +19,7 @@ export default async function CategoriasPage() {
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-1 mb-1">
-          <Tags className="w-4 h-4 text-brand-700" />
+          <Tags className="w-4 h-4 text-violet-500" />
           <h2 className="text-sm font-semibold text-slate-700">Categorias ({categorias.length})</h2>
         </div>
         <ListaCategorias categorias={categorias} />

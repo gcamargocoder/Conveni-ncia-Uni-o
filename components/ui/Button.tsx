@@ -14,7 +14,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const CLASSES_VARIANTE: Record<Variante, string> = {
   primary: "rounded-full shadow-sm bg-brand-700 text-white hover:bg-brand-900 disabled:bg-brand-200",
   secondary: "rounded-xl bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 disabled:text-slate-300",
-  danger: "rounded-full shadow-sm bg-danger-600 text-white hover:bg-danger-700 disabled:bg-danger-50 disabled:text-danger-600/40",
+  danger: "rounded-full shadow-sm bg-danger-600 text-white hover:bg-danger-700 enabled:hover:ring-danger-50 disabled:bg-danger-50 disabled:text-danger-600/40",
   ghost: "rounded-xl bg-transparent text-slate-600 hover:bg-slate-100 disabled:text-slate-300",
 };
 
@@ -39,7 +39,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || carregando}
         className={`
           inline-flex items-center justify-center font-semibold
-          transition-colors duration-150
+          transition-all duration-300
+          enabled:hover:-translate-y-0.5 enabled:hover:shadow-lg enabled:hover:ring-2 enabled:hover:ring-brand-200
+          enabled:active:translate-y-0
+          [&>svg]:transition-transform [&>svg]:duration-300 enabled:hover:[&>svg]:scale-110
           disabled:cursor-not-allowed
           ${CLASSES_VARIANTE[variante]}
           ${CLASSES_TAMANHO[tamanho]}

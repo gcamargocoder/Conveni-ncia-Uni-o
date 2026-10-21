@@ -20,7 +20,7 @@ export function ListaClientes({ clientes }: ListaClientesProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="relative px-5 pt-5">
-        <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-4 h-4 text-fuchsia-500" />
         <input
           placeholder="Procurar cliente pelo nome..."
           value={busca}
@@ -52,6 +52,7 @@ export function ListaClientes({ clientes }: ListaClientesProps) {
         dados={filtrado}
         chaveLinha={(c) => c.id}
         vazioIcone={Users}
+        vazioModulo="clientes"
         vazioTitulo={termo ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado ainda"}
         vazioDescricao={termo ? undefined : 'Clique em "Novo Cliente" para começar.'}
       />

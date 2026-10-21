@@ -102,7 +102,7 @@ export function SelecionarClienteModal({ aberto, onFechar, onSelecionar }: Selec
       {!cadastrando ? (
         <div className="flex flex-col gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fuchsia-500" />
             <input
               autoFocus
               placeholder="Buscar cliente pelo nome..."
@@ -131,7 +131,7 @@ export function SelecionarClienteModal({ aberto, onFechar, onSelecionar }: Selec
           </ul>
 
           <Button variante="secondary" tamanho="sm" onClick={abrirCadastroRapido}>
-            <UserPlus className="w-3.5 h-3.5" />
+            <UserPlus className="w-3.5 h-3.5 text-fuchsia-500" />
             Cadastrar novo cliente
           </Button>
         </div>

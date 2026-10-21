@@ -19,7 +19,7 @@ export function ListaCategorias({ categorias }: ListaCategoriasProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="relative px-5 pt-5">
-        <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-500" />
         <input
           placeholder="Procurar categoria..."
           value={busca}
@@ -40,6 +40,7 @@ export function ListaCategorias({ categorias }: ListaCategoriasProps) {
         dados={filtrado}
         chaveLinha={(c) => c.id}
         vazioIcone={Tags}
+        vazioModulo="categorias"
         vazioTitulo={termo ? "Nenhuma categoria encontrada" : "Nenhuma categoria cadastrada ainda"}
         vazioDescricao={termo ? undefined : 'Categorias novas podem ser criadas direto no cadastro de produto.'}
       />

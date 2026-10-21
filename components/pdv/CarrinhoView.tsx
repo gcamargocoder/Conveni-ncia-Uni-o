@@ -12,7 +12,7 @@ interface CarrinhoViewProps {
 
 export function CarrinhoView({ itens, onAlterarQuantidade, onRemover }: CarrinhoViewProps) {
   if (itens.length === 0) {
-    return <EmptyState icone={ShoppingCart} titulo="Carrinho vazio" descricao="Busque um produto para começar a venda." />;
+    return <EmptyState icone={ShoppingCart} modulo="pdv" titulo="Carrinho vazio" descricao="Busque um produto para começar a venda." />;
   }
 
   return (
@@ -28,17 +28,17 @@ export function CarrinhoView({ itens, onAlterarQuantidade, onRemover }: Carrinho
             <button
               onClick={() => onAlterarQuantidade(item.produto_id, item.quantidade - 1)}
               aria-label="Diminuir quantidade"
-              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+              className="group w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-2 hover:ring-brand-200 flex items-center justify-center transition-all duration-300"
             >
-              <Minus className="w-3.5 h-3.5 text-slate-600" />
+              <Minus className="w-3.5 h-3.5 text-rose-500 transition-transform duration-300 group-hover:scale-110" />
             </button>
             <span className="w-6 text-center text-sm font-semibold tabular-nums">{item.quantidade}</span>
             <button
               onClick={() => onAlterarQuantidade(item.produto_id, item.quantidade + 1)}
               aria-label="Aumentar quantidade"
-              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+              className="group w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 hover:-translate-y-0.5 hover:shadow-lg hover:ring-2 hover:ring-brand-200 flex items-center justify-center transition-all duration-300"
             >
-              <Plus className="w-3.5 h-3.5 text-slate-600" />
+              <Plus className="w-3.5 h-3.5 text-teal-500 transition-transform duration-300 group-hover:scale-110" />
             </button>
           </div>
 
@@ -49,9 +49,9 @@ export function CarrinhoView({ itens, onAlterarQuantidade, onRemover }: Carrinho
           <button
             onClick={() => onRemover(item.produto_id)}
             aria-label={`Remover ${item.nome}`}
-            className="text-slate-400 hover:text-danger-600 transition-colors shrink-0"
+            className="group shrink-0 w-8 h-8 rounded-full bg-rose-50 ring-1 ring-rose-100 flex items-center justify-center transition-all duration-300 hover:bg-rose-100 hover:ring-rose-200 hover:-translate-y-0.5 hover:shadow-lg"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4 text-rose-500 transition-transform duration-300 group-hover:scale-110" />
           </button>
         </li>
       ))}

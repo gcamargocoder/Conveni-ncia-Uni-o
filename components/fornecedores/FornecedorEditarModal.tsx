@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FornecedorForm } from "./FornecedorForm";
 import type { Fornecedor } from "@/services/fornecedores.service";
+import { BotaoAcaoTabela } from "@/components/ui/BotaoAcaoTabela";
 
 interface FornecedorEditarModalProps {
   fornecedor: Fornecedor;
@@ -15,13 +16,9 @@ export function FornecedorEditarModal({ fornecedor }: FornecedorEditarModalProps
 
   return (
     <>
-      <button
-        onClick={() => setAberto(true)}
-        className="flex items-center gap-1.5 text-brand-700 hover:underline text-sm font-medium"
-      >
-        <Pencil className="w-3.5 h-3.5" />
+      <BotaoAcaoTabela tipo="editar" icone={Pencil} onClick={() => setAberto(true)}>
         Editar
-      </button>
+      </BotaoAcaoTabela>
 
       <Modal aberto={aberto} titulo={`Editar — ${fornecedor.nome}`} onFechar={() => setAberto(false)}>
         <FornecedorForm

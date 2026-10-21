@@ -23,7 +23,7 @@ export default async function ClientesPage() {
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <Users className="w-4 h-4 text-brand-700" />
+          <Users className="w-4 h-4 text-fuchsia-500" />
           <h2 className="text-sm font-semibold text-slate-700">Cadastrados ({clientes.length})</h2>
         </div>
         <ListaClientes clientes={clientes} />

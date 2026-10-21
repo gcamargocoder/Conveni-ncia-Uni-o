@@ -31,7 +31,7 @@ export function HistoricoLista({ eventos, rotuloPeriodo }: HistoricoListaProps) 
       <Card semPadding className="no-print">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 pt-5">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
             <input
               placeholder="Procurar por produto, código de barras, funcionário ou tipo..."
               value={busca}
@@ -41,11 +41,11 @@ export function HistoricoLista({ eventos, rotuloPeriodo }: HistoricoListaProps) 
           </div>
           <div className="flex gap-2">
             <Button variante="secondary" tamanho="sm" onClick={imprimir}>
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5 text-indigo-500" />
               Imprimir
             </Button>
             <Button variante="secondary" tamanho="sm" onClick={imprimir}>
-              <FileDown className="w-3.5 h-3.5" />
+              <FileDown className="w-3.5 h-3.5 text-indigo-500" />
               Salvar em PDF
             </Button>
           </div>
@@ -55,6 +55,7 @@ export function HistoricoLista({ eventos, rotuloPeriodo }: HistoricoListaProps) 
           <div className="py-6">
             <EmptyState
               icone={HistoryIcon}
+              modulo="historico"
               titulo={busca ? "Nenhum resultado encontrado" : "Nenhuma operação no período"}
               descricao={busca ? "Tente buscar por outro termo." : undefined}
             />
@@ -65,8 +66,8 @@ export function HistoricoLista({ eventos, rotuloPeriodo }: HistoricoListaProps) 
               const Icone = e.tipo === "venda" ? ShoppingCart : Boxes;
               return (
                 <li key={`${e.tipo}-${e.id}`} className="flex items-start gap-3 py-3">
-                  <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
-                    <Icone className="w-4 h-4 text-brand-700" />
+                  <div className={`w-8 h-8 rounded-lg ${e.tipo === "venda" ? "bg-teal-50" : "bg-emerald-50"} flex items-center justify-center shrink-0 mt-0.5`}>
+                    <Icone className={`w-4 h-4 ${e.tipo === "venda" ? "text-teal-500" : "text-emerald-500"}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-3">

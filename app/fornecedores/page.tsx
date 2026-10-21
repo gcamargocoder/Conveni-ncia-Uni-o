@@ -25,7 +25,7 @@ export default async function FornecedoresPage() {
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <Truck className="w-4 h-4 text-brand-700" />
+          <Truck className="w-4 h-4 text-cyan-500" />
           <h2 className="text-sm font-semibold text-slate-700">Cadastrados ({fornecedores.length})</h2>
         </div>
         <Table
@@ -51,6 +51,7 @@ export default async function FornecedoresPage() {
           dados={fornecedores}
           chaveLinha={(f) => f.id}
           vazioIcone={Truck}
+          vazioModulo="fornecedores"
           vazioTitulo="Nenhum fornecedor cadastrado ainda"
           vazioDescricao='Clique em "Cadastrar fornecedor" para começar.'
         />

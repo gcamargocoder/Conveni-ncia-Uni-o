@@ -34,7 +34,7 @@ export default async function ProdutosPage() {
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <Tags className="w-4 h-4 text-brand-700" />
+          <Tags className="w-4 h-4 text-orange-500" />
           <h2 className="text-sm font-semibold text-slate-700">Cadastrados ({produtos.length})</h2>
         </div>
         <Table
@@ -63,6 +63,7 @@ export default async function ProdutosPage() {
           dados={produtos}
           chaveLinha={(p) => p.id}
           vazioIcone={Tags}
+          vazioModulo="produtos"
           vazioTitulo="Nenhum produto cadastrado ainda"
           vazioDescricao='Clique em "Cadastrar produto" para começar.'
         />

@@ -8,6 +8,7 @@ import { PinInput } from "@/components/auth/PinInput";
 import { ReciboTermico } from "@/components/pdv/ReciboTermico";
 import { EstoqueInsuficienteModal, PendenciaEstoque } from "@/components/pdv/EstoqueInsuficienteModal";
 import { SelecionarClienteModal } from "@/components/pdv/SelecionarClienteModal";
+import { COR_ICONE_PAGAMENTO } from "@/components/ui/cores-modulo";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -24,12 +25,12 @@ import type { ClienteLocal } from "@/services/offline/db";
 import { FormaPagamento, ProdutoParaVenda } from "@/types/venda";
 import { VendaCompleta } from "@/services/vendas.service";
 
-const FORMAS: { valor: FormaPagamento; rotulo: string; icone: typeof Banknote }[] = [
-  { valor: "dinheiro", rotulo: "Dinheiro", icone: Banknote },
-  { valor: "pix", rotulo: "PIX", icone: Smartphone },
-  { valor: "debito", rotulo: "Débito", icone: CreditCard },
-  { valor: "credito", rotulo: "Crédito", icone: Landmark },
-  { valor: "fiado", rotulo: "Fiado", icone: HandCoins },
+const FORMAS: { valor: FormaPagamento; rotulo: string; icone: typeof Banknote; cor: string }[] = [
+  { valor: "dinheiro", rotulo: "Dinheiro", icone: Banknote, cor: COR_ICONE_PAGAMENTO.dinheiro },
+  { valor: "pix", rotulo: "PIX", icone: Smartphone, cor: COR_ICONE_PAGAMENTO.pix },
+  { valor: "debito", rotulo: "Débito", icone: CreditCard, cor: COR_ICONE_PAGAMENTO.debito },
+  { valor: "credito", rotulo: "Crédito", icone: Landmark, cor: COR_ICONE_PAGAMENTO.credito },
+  { valor: "fiado", rotulo: "Fiado", icone: HandCoins, cor: COR_ICONE_PAGAMENTO.fiado },
 ];
 
 interface PendenciaEstoqueComProduto extends PendenciaEstoque {
@@ -234,7 +235,7 @@ export function PDVClient() {
         {clienteSelecionado ? (
           <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
-              <User className="w-4 h-4 text-brand-700 shrink-0" />
+              <User className="w-4 h-4 text-fuchsia-500 shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-800 truncate">{clienteSelecionado.nome}</p>
                 {clienteSelecionado.telefone && <p className="text-xs text-slate-500">{clienteSelecionado.telefone}</p>}
@@ -250,7 +251,7 @@ export function PDVClient() {
           </div>
         ) : (
           <Button variante="secondary" tamanho="sm" onClick={() => setSelecionandoCliente(true)}>
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5 text-brand-600" />
             Buscar ou cadastrar cliente
           </Button>
         )}
@@ -274,7 +275,7 @@ export function PDVClient() {
         <div className="lg:sticky lg:top-4 lg:self-start">
           <Card className="flex flex-col gap-5">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-brand-700" />
+              <ShoppingCart className="w-4 h-4 text-teal-500" />
               <h2 className="text-sm font-semibold text-slate-700">Resumo da venda</h2>
             </div>
 
@@ -293,13 +294,13 @@ export function PDVClient() {
                     <button
                       key={f.valor}
                       onClick={() => aoTrocarFormaPagamento(f.valor)}
-                      className={`w-full flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border text-sm font-medium transition-colors ${
+                      className={`group w-full flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:ring-2 hover:ring-brand-200 ${
                         ativo
                           ? "bg-brand-700 text-white border-brand-700"
                           : "bg-white text-slate-600 border-slate-200 hover:border-brand-600"
                       }`}
                     >
-                      <Icone className="w-4 h-4" />
+                      <Icone className={`w-4 h-4 transition-transform duration-300 group-hover:scale-110 ${ativo ? "text-white" : f.cor}`} />
                       {f.rotulo}
                     </button>
                   );

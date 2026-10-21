@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { EmptyState } from "./EmptyState";
 import type { LucideIcon } from "lucide-react";
+import type { ModuloCor } from "./cores-modulo";
 
 export interface ColunaTabela<T> {
   chave: string;
@@ -14,13 +15,14 @@ export interface TableProps<T> {
   dados: T[];
   chaveLinha: (item: T) => string;
   vazioIcone: LucideIcon;
+  vazioModulo?: ModuloCor;
   vazioTitulo: string;
   vazioDescricao?: string;
 }
 
-export function Table<T>({ colunas, dados, chaveLinha, vazioIcone, vazioTitulo, vazioDescricao }: TableProps<T>) {
+export function Table<T>({ colunas, dados, chaveLinha, vazioIcone, vazioModulo, vazioTitulo, vazioDescricao }: TableProps<T>) {
   if (dados.length === 0) {
-    return <EmptyState icone={vazioIcone} titulo={vazioTitulo} descricao={vazioDescricao} />;
+    return <EmptyState icone={vazioIcone} modulo={vazioModulo} titulo={vazioTitulo} descricao={vazioDescricao} />;
   }
 
   return (
@@ -61,7 +63,7 @@ export function Table<T>({ colunas, dados, chaveLinha, vazioIcone, vazioTitulo, 
           </thead>
           <tbody>
             {dados.map((item) => (
-              <tr key={chaveLinha(item)} className="border-b border-slate-50 last:border-0">
+              <tr key={chaveLinha(item)} className="border-b border-slate-50 last:border-0 transition-colors duration-300 hover:bg-slate-50/70">
                 {colunas.map((c) => (
                   <td key={c.chave} className={`py-3 px-3 text-slate-800 break-words ${c.className ?? ""}`}>
                     {c.render ? c.render(item) : String((item as Record<string, unknown>)[c.chave] ?? "")}

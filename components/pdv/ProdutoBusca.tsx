@@ -93,7 +93,7 @@ export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-600" />
         <input
           autoFocus
           placeholder="Buscar produto ou passar código de barras..."
@@ -106,9 +106,9 @@ export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
           type="button"
           onClick={() => setLeitorCameraAberto(true)}
           aria-label="Escanear código de barras com a câmera"
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+          className="group absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 hover:shadow-lg hover:ring-2 hover:ring-brand-200 flex items-center justify-center transition-all duration-300"
         >
-          <Camera className="w-5 h-5 text-slate-600" />
+          <Camera className="w-5 h-5 text-brand-600 transition-transform duration-300 group-hover:scale-110" />
         </button>
       </div>
 

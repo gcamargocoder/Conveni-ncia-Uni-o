@@ -56,7 +56,7 @@ export function FiltroPeriodoHistorico({ periodoAtual, deAtual, ateAtual }: Filt
               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
           }`}
         >
-          <Calendar className="w-3.5 h-3.5" />
+          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
           Período personalizado
         </button>
       </div>

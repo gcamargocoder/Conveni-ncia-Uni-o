@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { BotaoAcaoTabela } from "@/components/ui/BotaoAcaoTabela";
 
 const CARGOS: { valor: Cargo; rotulo: string }[] = [
   { valor: "caixa", rotulo: "Caixa" },
@@ -58,13 +59,9 @@ export function FuncionarioEditarModal({ funcionario }: FuncionarioEditarModalPr
 
   return (
     <>
-      <button
-        onClick={() => setAberto(true)}
-        className="flex items-center gap-1.5 text-brand-700 hover:underline text-sm font-medium"
-      >
-        <Pencil className="w-3.5 h-3.5" />
+      <BotaoAcaoTabela tipo="editar" icone={Pencil} onClick={() => setAberto(true)}>
         Editar
-      </button>
+      </BotaoAcaoTabela>
 
       <Modal aberto={aberto} titulo={`Editar — ${funcionario.nome}`} onFechar={() => setAberto(false)}>
         <div className="flex flex-col gap-6">

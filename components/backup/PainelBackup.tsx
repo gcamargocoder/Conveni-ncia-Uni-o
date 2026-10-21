@@ -92,7 +92,7 @@ export function PainelBackup() {
     <div className="flex flex-col gap-4">
       <Card>
         <div className="flex items-center gap-2 mb-3">
-          <Download className="w-4 h-4 text-brand-700" />
+          <Download className="w-4 h-4 text-lime-500" />
           <h2 className="text-sm font-semibold text-slate-700">Baixar backup</h2>
         </div>
         <p className="text-sm text-slate-500 mb-4">
@@ -108,7 +108,7 @@ export function PainelBackup() {
 
       <Card>
         <div className="flex items-center gap-2 mb-3">
-          <Upload className="w-4 h-4 text-brand-700" />
+          <Upload className="w-4 h-4 text-lime-500" />
           <h2 className="text-sm font-semibold text-slate-700">Restaurar backup</h2>
         </div>
         <p className="text-sm text-slate-500 mb-4">

@@ -27,6 +27,7 @@ export default async function VendasRevisaoPage() {
         <Card>
           <EmptyState
             icone={ClipboardCheck}
+            modulo="revisao"
             titulo="Nenhuma venda aguardando revisão"
             descricao="Tudo o que foi sincronizado conferiu com o cadastro."
           />

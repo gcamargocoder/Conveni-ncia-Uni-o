@@ -20,7 +20,7 @@ export interface KpiCardProps {
 export function KpiCard({ icone: Icone, rotulo, valor, destaque }: KpiCardProps) {
   if (destaque) {
     return (
-      <div className="rounded-2xl bg-gradient-to-br from-brand-700 to-brand-900 shadow-card p-5 flex items-center gap-4">
+      <div className="rounded-2xl bg-gradient-to-br from-brand-700 to-brand-900 shadow-card p-5 flex items-center gap-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:ring-2 hover:ring-brand-200">
         <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
           <Icone className="w-5 h-5 text-white" />
         </div>
@@ -33,9 +33,9 @@ export function KpiCard({ icone: Icone, rotulo, valor, destaque }: KpiCardProps)
   }
 
   return (
-    <Card className="flex items-center gap-4">
-      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 flex items-center justify-center shrink-0">
-        <Icone className="w-5 h-5 text-brand-700" />
+    <Card interativo className="flex items-center gap-4">
+      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-50 to-sky-100 flex items-center justify-center shrink-0">
+        <Icone className="w-5 h-5 text-sky-500" />
       </div>
       <div>
         <p className="text-xs font-medium text-slate-500 tracking-wide">{rotulo}</p>

@@ -29,10 +29,10 @@ import { StatusOperacional } from "@/components/dashboard/StatusOperacional";
 import { exigirSessao } from "@/lib/auth/servidor";
 
 const ATALHOS = [
-  { href: "/pdv", titulo: "Nova venda", icone: ShoppingCart },
-  { href: "/estoque", titulo: "Movimentar estoque", icone: Boxes },
-  { href: "/produtos", titulo: "Cadastrar produto", icone: Tags },
-  { href: "/relatorios", titulo: "Ver relatórios", icone: FileBarChart2 },
+  { href: "/pdv", titulo: "Nova venda", icone: ShoppingCart, cor: "text-teal-500" },
+  { href: "/estoque", titulo: "Movimentar estoque", icone: Boxes, cor: "text-emerald-500" },
+  { href: "/produtos", titulo: "Cadastrar produto", icone: Tags, cor: "text-orange-500" },
+  { href: "/relatorios", titulo: "Ver relatórios", icone: FileBarChart2, cor: "text-purple-500" },
 ];
 
 function formatarMoeda(valor: number): string {
@@ -77,11 +77,11 @@ export default async function DashboardPage() {
         <div className="lg:col-span-2 flex flex-col gap-4">
           <Card>
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4 h-4 text-brand-700" />
+              <TrendingUp className="w-4 h-4 text-teal-500" />
               <h2 className="text-sm font-semibold text-slate-700">Mais vendidos (30 dias)</h2>
             </div>
             {resumo.produtosMaisVendidos.length === 0 ? (
-              <EmptyState icone={TrendingUp} titulo="Nenhuma venda registrada ainda" />
+              <EmptyState icone={TrendingUp} modulo="pdv" titulo="Nenhuma venda registrada ainda" />
             ) : (
               <ol className="flex flex-col gap-2.5">
                 {resumo.produtosMaisVendidos.map((p, i) => (
@@ -105,7 +105,7 @@ export default async function DashboardPage() {
               <h2 className="text-sm font-semibold text-slate-700">Estoque baixo</h2>
             </div>
             {resumo.produtosEstoqueBaixo.length === 0 ? (
-              <EmptyState icone={Boxes} titulo="Nenhum produto abaixo do mínimo" />
+              <EmptyState icone={Boxes} modulo="estoque" titulo="Nenhum produto abaixo do mínimo" />
             ) : (
               <ul className="flex flex-col gap-2.5">
                 {resumo.produtosEstoqueBaixo.map((p) => (
@@ -121,7 +121,7 @@ export default async function DashboardPage() {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <HandCoins className="w-4 h-4 text-brand-700" />
+                <HandCoins className="w-4 h-4 text-amber-500" />
                 <h2 className="text-sm font-semibold text-slate-700">Contas a Receber</h2>
               </div>
               <Link href="/contas-receber" className="text-xs font-medium text-brand-700 hover:underline">
@@ -139,7 +139,7 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               <div className="flex flex-col gap-1">
                 <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <Users className="w-3.5 h-3.5" />
+                  <Users className="w-3.5 h-3.5 text-fuchsia-500" />
                   Devedores
                 </span>
                 <span className="text-lg font-bold text-slate-900">{resumoFinanceiro.quantidadeClientesDevedores}</span>
@@ -162,7 +162,7 @@ export default async function DashboardPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <Wallet className="w-3.5 h-3.5" />
+                  <Wallet className="w-3.5 h-3.5 text-emerald-500" />
                   Recebido hoje
                 </span>
                 <span className="text-lg font-bold text-slate-900">{formatarMoeda(resumoFinanceiro.valorRecebidoHoje)}</span>
@@ -174,7 +174,7 @@ export default async function DashboardPage() {
             </p>
 
             {contasPendentes.length === 0 ? (
-              <EmptyState icone={HandCoins} titulo="Nenhuma conta em aberto" />
+              <EmptyState icone={HandCoins} modulo="contasReceber" titulo="Nenhuma conta em aberto" />
             ) : (
               <ul className="flex flex-col gap-2.5 border-t border-slate-100 pt-3">
                 {maisUrgentes.map((c) => {
@@ -199,7 +199,7 @@ export default async function DashboardPage() {
 
           <Card>
             <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-4 h-4 text-brand-700" />
+              <Zap className="w-4 h-4 text-sky-500" />
               <h2 className="text-sm font-semibold text-slate-700">Atalhos rápidos</h2>
             </div>
             <div className="flex flex-col gap-1">
@@ -209,9 +209,9 @@ export default async function DashboardPage() {
                   <Link
                     key={a.href}
                     href={a.href}
-                    className="flex items-center gap-2.5 rounded-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="group flex items-center gap-2.5 rounded-full px-3 py-2 text-sm text-slate-700 transition-all duration-300 hover:bg-slate-50 hover:-translate-y-0.5 hover:shadow-lg hover:ring-2 hover:ring-brand-200"
                   >
-                    <Icone className="w-4 h-4 text-brand-700" />
+                    <Icone className={`w-4 h-4 transition-transform duration-300 group-hover:scale-110 ${a.cor}`} />
                     {a.titulo}
                   </Link>
                 );
@@ -221,11 +221,11 @@ export default async function DashboardPage() {
 
           <Card>
             <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-4 h-4 text-brand-700" />
+              <Clock className="w-4 h-4 text-sky-500" />
               <h2 className="text-sm font-semibold text-slate-700">Últimas movimentações</h2>
             </div>
             {ultimasMovimentacoes.length === 0 ? (
-              <EmptyState icone={Clock} titulo="Nenhuma operação recente" />
+              <EmptyState icone={Clock} modulo="dashboard" titulo="Nenhuma operação recente" />
             ) : (
               <ul className="flex flex-col gap-3">
                 {ultimasMovimentacoes.map((e) => (

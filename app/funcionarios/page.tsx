@@ -24,7 +24,7 @@ export default async function FuncionariosPage() {
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <Users className="w-4 h-4 text-brand-700" />
+          <Users className="w-4 h-4 text-pink-500" />
           <h2 className="text-sm font-semibold text-slate-700">Cadastrados ({funcionarios.length})</h2>
         </div>
         <Table
@@ -44,6 +44,7 @@ export default async function FuncionariosPage() {
           dados={funcionarios}
           chaveLinha={(f) => f.id}
           vazioIcone={Users}
+          vazioModulo="funcionarios"
           vazioTitulo="Nenhum funcionário cadastrado ainda"
           vazioDescricao='Clique em "Cadastrar funcionário" para começar.'
         />
