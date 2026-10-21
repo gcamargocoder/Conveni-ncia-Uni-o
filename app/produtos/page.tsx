@@ -23,37 +23,33 @@ export default async function ProdutosPage() {
   const fornecedoresOpcoes = fornecedores.map((f) => ({ id: f.id, nome: f.nome }));
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)]">
     <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Produtos</h1>
-          <p className="text-zinc-400 text-sm">Produtos e categorias</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Produtos</h1>
+          <p className="text-slate-500 text-sm">Produtos e categorias</p>
         </div>
         <ProdutoCadastroModal categorias={categoriasOpcoes} fornecedores={fornecedoresOpcoes} />
       </header>
 
-      <Card semPadding className="!bg-surface !border-surface-border">
+      <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
-          <Tags className="w-4 h-4 text-brand-blue" />
-          <h2 className="text-sm font-semibold text-zinc-300">Cadastrados ({produtos.length})</h2>
+          <Tags className="w-4 h-4 text-brand-700" />
+          <h2 className="text-sm font-semibold text-slate-700">Cadastrados ({produtos.length})</h2>
         </div>
         <Table
-          escuro
           colunas={[
             { chave: "nome", cabecalho: "Nome" },
-            { chave: "preco_venda", cabecalho: "Preço", className: "tabular-nums", render: (p) => `R$ ${p.preco_venda.toFixed(2)}` },
-            { chave: "estoque_minimo", cabecalho: "Estoque mín.", className: "tabular-nums" },
+            { chave: "preco_venda", cabecalho: "Preço", render: (p) => `R$ ${p.preco_venda.toFixed(2)}` },
+            { chave: "estoque_minimo", cabecalho: "Estoque mín." },
             {
               chave: "situacao",
               cabecalho: "Situação",
               render: (p) =>
                 p.ativo ? (
-                  <span className="text-zinc-500 text-xs">Ativo</span>
+                  <span className="text-slate-400 text-xs">Ativo</span>
                 ) : (
-                  <Badge variante="neutral" className="!bg-zinc-800 !text-zinc-400">
-                    Inativo
-                  </Badge>
+                  <Badge variante="neutral">Inativo</Badge>
                 ),
             },
             {
@@ -72,6 +68,5 @@ export default async function ProdutosPage() {
         />
       </Card>
     </main>
-    </div>
   );
 }

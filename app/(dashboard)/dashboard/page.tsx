@@ -16,7 +16,6 @@ import {
   AlertOctagon,
   CalendarClock,
   Wallet,
-  type LucideIcon,
 } from "lucide-react";
 import { buscarResumoDashboard } from "@/services/dashboard.service";
 import { listarHistorico } from "@/services/historico.service";
@@ -24,6 +23,7 @@ import { listarContasPendentes, buscarResumoFinanceiro } from "@/services/contas
 import { classificarUrgencia } from "@/lib/contas-receber/urgencia";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { StatusOperacional } from "@/components/dashboard/StatusOperacional";
 import { exigirSessao } from "@/lib/auth/servidor";
@@ -35,29 +35,8 @@ const ATALHOS = [
   { href: "/relatorios", titulo: "Ver relatórios", icone: FileBarChart2 },
 ];
 
-// Tema escuro só do dashboard: o "!" vence as classes claras dos componentes compartilhados (Card, Badge).
-const CARD_ESCURO = "!bg-surface !border-surface-border";
-const BADGE_ALERTA = "!text-brand-orange !bg-brand-orange/10 !border !border-brand-orange/30";
-const BADGE_URGENCIA: Record<"success" | "warning" | "danger", string> = {
-  success: "!bg-emerald-500/10 !text-emerald-400",
-  warning: BADGE_ALERTA,
-  danger: "!bg-red-500/10 !text-red-400",
-};
-
 function formatarMoeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-/** Mesmo conteúdo do EmptyState compartilhado (claro), nas cores do dashboard escuro. */
-function VazioEscuro({ icone: Icone, titulo }: { icone: LucideIcon; titulo: string }) {
-  return (
-    <div className="flex flex-col items-center text-center py-12 px-4">
-      <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mb-3">
-        <Icone className="w-6 h-6 text-brand-blue" />
-      </div>
-      <p className="font-medium text-zinc-300">{titulo}</p>
-    </div>
-  );
 }
 
 export const dynamic = "force-dynamic";
@@ -82,11 +61,10 @@ export default async function DashboardPage() {
   const maisUrgentes = contasPendentes.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)]">
     <main className="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
-        <p className="text-zinc-400 text-sm">Visão geral de hoje</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+        <p className="text-slate-500 text-sm">Visão geral de hoje</p>
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -97,120 +75,116 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <Card className={CARD_ESCURO}>
+          <Card>
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4 h-4 text-brand-blue" />
-              <h2 className="text-sm font-semibold text-zinc-300">Mais vendidos (30 dias)</h2>
+              <TrendingUp className="w-4 h-4 text-brand-700" />
+              <h2 className="text-sm font-semibold text-slate-700">Mais vendidos (30 dias)</h2>
             </div>
             {resumo.produtosMaisVendidos.length === 0 ? (
-              <VazioEscuro icone={TrendingUp} titulo="Nenhuma venda registrada ainda" />
+              <EmptyState icone={TrendingUp} titulo="Nenhuma venda registrada ainda" />
             ) : (
-              <ol className="flex flex-col divide-y divide-surface-border">
+              <ol className="flex flex-col gap-2.5">
                 {resumo.produtosMaisVendidos.map((p, i) => (
-                  <li key={p.produto_id} className="flex items-center justify-between text-sm py-2.5 first:pt-0 last:pb-0">
+                  <li key={p.produto_id} className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-2.5">
-                      <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-400 text-xs font-semibold flex items-center justify-center">
+                      <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-xs font-semibold flex items-center justify-center">
                         {i + 1}
                       </span>
-                      <span className="text-white">{p.nome}</span>
+                      <span className="text-slate-700">{p.nome}</span>
                     </span>
-                    <span className="text-zinc-400 font-medium">{p.quantidade_total} un.</span>
+                    <span className="text-slate-500 font-medium">{p.quantidade_total} un.</span>
                   </li>
                 ))}
               </ol>
             )}
           </Card>
 
-          <Card className={CARD_ESCURO}>
+          <Card>
             <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="w-4 h-4 text-brand-orange" />
-              <h2 className="text-sm font-semibold text-zinc-300">Estoque baixo</h2>
+              <AlertTriangle className="w-4 h-4 text-warning-600" />
+              <h2 className="text-sm font-semibold text-slate-700">Estoque baixo</h2>
             </div>
             {resumo.produtosEstoqueBaixo.length === 0 ? (
-              <VazioEscuro icone={Boxes} titulo="Nenhum produto abaixo do mínimo" />
+              <EmptyState icone={Boxes} titulo="Nenhum produto abaixo do mínimo" />
             ) : (
-              <ul className="flex flex-col divide-y divide-surface-border">
+              <ul className="flex flex-col gap-2.5">
                 {resumo.produtosEstoqueBaixo.map((p) => (
-                  <li key={p.produto_id} className="flex items-center justify-between text-sm py-2.5 first:pt-0 last:pb-0">
-                    <span className="text-white">{p.nome}</span>
-                    <Badge variante="warning" className={BADGE_ALERTA}>
-                      {p.quantidade_atual} un.
-                    </Badge>
+                  <li key={p.produto_id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{p.nome}</span>
+                    <Badge variante="warning">{p.quantidade_atual} un.</Badge>
                   </li>
                 ))}
               </ul>
             )}
           </Card>
 
-          <Card className={CARD_ESCURO}>
+          <Card>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <HandCoins className="w-4 h-4 text-brand-blue" />
-                <h2 className="text-sm font-semibold text-zinc-300">Contas a Receber</h2>
+                <HandCoins className="w-4 h-4 text-brand-700" />
+                <h2 className="text-sm font-semibold text-slate-700">Contas a Receber</h2>
               </div>
-              <Link href="/contas-receber" className="text-xs font-medium text-brand-blue hover:text-white transition-colors duration-150">
+              <Link href="/contas-receber" className="text-xs font-medium text-brand-700 hover:underline">
                 Ver todas
               </Link>
             </div>
 
-            <div className="flex items-baseline justify-between border-b border-surface-border pb-3 mb-3">
-              <span className="text-zinc-400 text-sm">Valor total em aberto</span>
-              <span className="text-2xl font-bold text-white tabular-nums">
+            <div className="flex items-baseline justify-between border-b border-slate-100 pb-3 mb-3">
+              <span className="text-slate-500 text-sm">Valor total em aberto</span>
+              <span className="text-2xl font-bold text-slate-900 tabular-nums">
                 {formatarMoeda(resumoFinanceiro.valorTotalEmAberto)}
               </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
                   <Users className="w-3.5 h-3.5" />
                   Devedores
                 </span>
-                <span className="text-lg font-bold text-white">{resumoFinanceiro.quantidadeClientesDevedores}</span>
+                <span className="text-lg font-bold text-slate-900">{resumoFinanceiro.quantidadeClientesDevedores}</span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-1.5 text-xs text-zinc-400">
-                  <AlertOctagon className="w-3.5 h-3.5 text-red-400" />
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <AlertOctagon className="w-3.5 h-3.5 text-danger-600" />
                   Vencidas
                 </span>
-                <span className="text-lg font-bold text-red-400">{resumoFinanceiro.quantidadeContasVencidas}</span>
+                <span className="text-lg font-bold text-danger-600">{resumoFinanceiro.quantidadeContasVencidas}</span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-1.5 text-xs text-zinc-400">
-                  <CalendarClock className="w-3.5 h-3.5 text-brand-orange" />
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <CalendarClock className="w-3.5 h-3.5 text-warning-600" />
                   Perto de vencer
                 </span>
-                <span className="text-lg font-bold text-brand-orange">
+                <span className="text-lg font-bold text-warning-600">
                   {resumoFinanceiro.quantidadeContasProximasVencimento}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
                   <Wallet className="w-3.5 h-3.5" />
                   Recebido hoje
                 </span>
-                <span className="text-lg font-bold text-white">{formatarMoeda(resumoFinanceiro.valorRecebidoHoje)}</span>
+                <span className="text-lg font-bold text-slate-900">{formatarMoeda(resumoFinanceiro.valorRecebidoHoje)}</span>
               </div>
             </div>
 
-            <p className="text-xs text-zinc-400 mb-3">
-              Recebido no mês: <strong className="text-zinc-200">{formatarMoeda(resumoFinanceiro.valorRecebidoNoMes)}</strong>
+            <p className="text-xs text-slate-500 mb-3">
+              Recebido no mês: <strong className="text-slate-700">{formatarMoeda(resumoFinanceiro.valorRecebidoNoMes)}</strong>
             </p>
 
             {contasPendentes.length === 0 ? (
-              <VazioEscuro icone={HandCoins} titulo="Nenhuma conta em aberto" />
+              <EmptyState icone={HandCoins} titulo="Nenhuma conta em aberto" />
             ) : (
-              <ul className="flex flex-col divide-y divide-surface-border border-t border-surface-border">
+              <ul className="flex flex-col gap-2.5 border-t border-slate-100 pt-3">
                 {maisUrgentes.map((c) => {
                   const urgencia = classificarUrgencia(c.dias_em_aberto);
                   return (
-                    <li key={c.id} className="flex items-center justify-between text-sm py-2.5">
-                      <span className="text-white">{c.cliente_nome}</span>
+                    <li key={c.id} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-700">{c.cliente_nome}</span>
                       <span className="flex items-center gap-2">
-                        <span className="text-zinc-400 font-medium">{formatarMoeda(c.saldo_atual)}</span>
-                        <Badge variante={urgencia.variante} className={BADGE_URGENCIA[urgencia.variante]}>
-                          {urgencia.rotulo}
-                        </Badge>
+                        <span className="text-slate-500 font-medium">{formatarMoeda(c.saldo_atual)}</span>
+                        <Badge variante={urgencia.variante}>{urgencia.rotulo}</Badge>
                       </span>
                     </li>
                   );
@@ -223,10 +197,10 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-4">
           <StatusOperacional />
 
-          <Card className={CARD_ESCURO}>
+          <Card>
             <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-4 h-4 text-brand-blue" />
-              <h2 className="text-sm font-semibold text-zinc-300">Atalhos rápidos</h2>
+              <Zap className="w-4 h-4 text-brand-700" />
+              <h2 className="text-sm font-semibold text-slate-700">Atalhos rápidos</h2>
             </div>
             <div className="flex flex-col gap-1">
               {ATALHOS.map((a) => {
@@ -235,9 +209,9 @@ export default async function DashboardPage() {
                   <Link
                     key={a.href}
                     href={a.href}
-                    className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-zinc-300 hover:bg-zinc-800/40 hover:text-white transition-colors duration-150"
+                    className="flex items-center gap-2.5 rounded-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                   >
-                    <Icone className="w-4 h-4 text-brand-blue" />
+                    <Icone className="w-4 h-4 text-brand-700" />
                     {a.titulo}
                   </Link>
                 );
@@ -245,19 +219,19 @@ export default async function DashboardPage() {
             </div>
           </Card>
 
-          <Card className={CARD_ESCURO}>
+          <Card>
             <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-4 h-4 text-brand-blue" />
-              <h2 className="text-sm font-semibold text-zinc-300">Últimas movimentações</h2>
+              <Clock className="w-4 h-4 text-brand-700" />
+              <h2 className="text-sm font-semibold text-slate-700">Últimas movimentações</h2>
             </div>
             {ultimasMovimentacoes.length === 0 ? (
-              <VazioEscuro icone={Clock} titulo="Nenhuma operação recente" />
+              <EmptyState icone={Clock} titulo="Nenhuma operação recente" />
             ) : (
-              <ul className="flex flex-col divide-y divide-surface-border">
+              <ul className="flex flex-col gap-3">
                 {ultimasMovimentacoes.map((e) => (
-                  <li key={`${e.tipo}-${e.id}`} className="text-sm py-3 first:pt-0 last:pb-0">
-                    <p className="text-white leading-snug">{e.descricao}</p>
-                    <p className="text-zinc-500 text-xs mt-0.5">
+                  <li key={`${e.tipo}-${e.id}`} className="text-sm">
+                    <p className="text-slate-700 leading-snug">{e.descricao}</p>
+                    <p className="text-slate-400 text-xs mt-0.5">
                       {e.funcionario_nome} · {new Date(e.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </li>
@@ -268,6 +242,5 @@ export default async function DashboardPage() {
         </div>
       </div>
     </main>
-    </div>
   );
 }

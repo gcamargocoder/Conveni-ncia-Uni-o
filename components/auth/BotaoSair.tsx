@@ -48,7 +48,7 @@ export function BotaoSair({ colapsada = false }: { colapsada?: boolean }) {
       onClick={sair}
       disabled={saindo}
       title="Sair"
-      className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-800/30 hover:text-white disabled:opacity-60 transition-colors duration-150"
+      className="flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-60 transition-colors"
     >
       <LogOut className="w-4 h-4 shrink-0" />
       {!colapsada && (saindo ? "Saindo..." : "Sair")}

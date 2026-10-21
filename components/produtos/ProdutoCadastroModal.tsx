@@ -16,10 +16,7 @@ export function ProdutoCadastroModal({ categorias, fornecedores }: ProdutoCadast
 
   return (
     <>
-      <Button
-        className="!bg-brand-blue hover:!bg-brand-blue-hover !text-white shadow-lg shadow-brand-blue/20"
-        onClick={() => setAberto(true)}
-      >
+      <Button onClick={() => setAberto(true)}>
         <Plus className="w-4 h-4" />
         Cadastrar produto
       </Button>

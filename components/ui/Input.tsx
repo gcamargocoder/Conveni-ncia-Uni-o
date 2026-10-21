@@ -75,7 +75,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           onBlur={aoDesfocar}
           onChange={aoMudar}
           className={`
-            w-full h-11 px-3 rounded-lg text-base bg-white
+            w-full h-11 px-3 rounded-xl text-base bg-white
             border ${erro ? "border-danger-600" : "border-slate-300"}
             placeholder:text-slate-400
             disabled:bg-slate-50 disabled:text-slate-400

@@ -19,7 +19,7 @@ export function ProdutoEditarModal({ produto, categorias, fornecedores }: Produt
     <>
       <button
         onClick={() => setAberto(true)}
-        className="flex items-center gap-1.5 rounded-md bg-zinc-800/50 px-2.5 py-1 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors duration-150 text-sm font-medium"
+        className="flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-brand-700 hover:bg-brand-100 text-sm font-medium transition-colors"
       >
         <Pencil className="w-3.5 h-3.5" />
         Editar

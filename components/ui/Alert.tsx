@@ -31,7 +31,7 @@ const CLASSES_VARIANTE: Record<Variante, string> = {
 export function Alert({ variante = "info", titulo, className = "", children, ...props }: AlertProps) {
   const Icone = ICONE[variante];
   return (
-    <div role="alert" className={`flex gap-3 rounded-lg border p-4 ${CLASSES_VARIANTE[variante]} ${className}`} {...props}>
+    <div role="alert" className={`flex gap-3 rounded-xl border p-4 ${CLASSES_VARIANTE[variante]} ${className}`} {...props}>
       <Icone className="w-5 h-5 shrink-0 mt-0.5" />
       <div>
         {titulo && <p className="font-semibold text-sm">{titulo}</p>}

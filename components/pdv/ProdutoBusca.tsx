@@ -93,11 +93,11 @@ export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-blue" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
         <input
           autoFocus
           placeholder="Buscar produto ou passar código de barras..."
-          className="w-full h-14 pl-12 pr-14 text-lg rounded-xl border border-surface-border bg-surface-elevated text-white placeholder:text-zinc-500 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue focus:ring-offset-0"
+          className="w-full h-14 pl-12 pr-14 text-lg rounded-xl border border-slate-300 focus:border-brand-600"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           onKeyDown={aoApertarEnter}
@@ -106,28 +106,28 @@ export function ProdutoBusca({ onSelecionar }: ProdutoBuscaProps) {
           type="button"
           onClick={() => setLeitorCameraAberto(true)}
           aria-label="Escanear código de barras com a câmera"
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors duration-150"
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
         >
-          <Camera className="w-5 h-5 text-brand-blue" />
+          <Camera className="w-5 h-5 text-slate-600" />
         </button>
       </div>
 
       {catalogoVazio && (
-        <Alert variante="warning" className="mt-2 !bg-brand-orange/10 !text-brand-orange !border-brand-orange/30">
+        <Alert variante="warning" className="mt-2">
           Catálogo ainda sincronizando — se acabou de abrir o sistema, aguarde alguns segundos.
         </Alert>
       )}
 
       {resultados.length > 0 && (
-        <ul className="absolute z-10 w-full bg-surface-elevated border border-surface-border rounded-xl mt-1 shadow-elevated max-h-64 overflow-auto">
+        <ul className="absolute z-10 w-full bg-white border border-slate-200 rounded-xl mt-1 shadow-elevated max-h-64 overflow-auto">
           {resultados.map((p) => (
             <li key={p.produto_id}>
               <button
                 onClick={() => selecionar(p)}
-                className="w-full text-left px-4 py-3 hover:bg-zinc-800/60 text-base flex justify-between transition-colors duration-150"
+                className="w-full text-left px-4 py-3 hover:bg-slate-50 text-base flex justify-between transition-colors"
               >
-                <span className="text-white">{p.nome}</span>
-                <span className="text-zinc-400 font-medium">R$ {p.preco_unitario.toFixed(2)}</span>
+                <span className="text-slate-800">{p.nome}</span>
+                <span className="text-slate-500 font-medium">R$ {p.preco_unitario.toFixed(2)}</span>
               </button>
             </li>
           ))}

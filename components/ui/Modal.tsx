@@ -33,7 +33,7 @@ export function Modal({ aberto, titulo, onFechar, children, rodape }: ModalProps
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-titulo"
-        className="relative w-full max-w-md max-h-[90vh] flex flex-col rounded-xl bg-white shadow-elevated animate-slide-up"
+        className="relative w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-elevated animate-slide-up"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
           <h2 id="modal-titulo" className="font-semibold text-slate-900">

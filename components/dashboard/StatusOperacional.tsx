@@ -26,16 +26,16 @@ export function StatusOperacional() {
   const ultimaSincFila = useUltimaSincronizacaoFila();
 
   return (
-    <Card className="flex flex-col gap-4 !bg-surface !border-surface-border">
+    <Card className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-300">Status operacional</h3>
+        <h3 className="text-sm font-semibold text-slate-700">Status operacional</h3>
         {status === "online" ? (
-          <Badge variante="success" className="!bg-emerald-500/10 !text-emerald-400">
+          <Badge variante="success">
             <Wifi className="w-3 h-3 mr-1" />
             Online
           </Badge>
         ) : (
-          <Badge variante="danger" className="!bg-red-500/10 !text-red-400">
+          <Badge variante="danger">
             <WifiOff className="w-3 h-3 mr-1" />
             Offline
           </Badge>
@@ -43,16 +43,16 @@ export function StatusOperacional() {
       </div>
       <dl className="grid grid-cols-3 gap-3 text-sm">
         <div>
-          <dt className="text-zinc-400 text-xs">Fila pendente</dt>
-          <dd className="font-semibold text-white mt-0.5">{pendentes ?? 0}</dd>
+          <dt className="text-slate-500 text-xs">Fila pendente</dt>
+          <dd className="font-semibold text-slate-900 mt-0.5">{pendentes ?? 0}</dd>
         </div>
         <div>
-          <dt className="text-zinc-400 text-xs">Sinc. vendas</dt>
-          <dd className="font-semibold text-white mt-0.5">{formatarHorario(ultimaSincFila)}</dd>
+          <dt className="text-slate-500 text-xs">Sinc. vendas</dt>
+          <dd className="font-semibold text-slate-900 mt-0.5">{formatarHorario(ultimaSincFila)}</dd>
         </div>
         <div>
-          <dt className="text-zinc-400 text-xs">Sinc. catálogo</dt>
-          <dd className="font-semibold text-white mt-0.5">{formatarHorario(statusCatalogo?.timestamp)}</dd>
+          <dt className="text-slate-500 text-xs">Sinc. catálogo</dt>
+          <dd className="font-semibold text-slate-900 mt-0.5">{formatarHorario(statusCatalogo?.timestamp)}</dd>
         </div>
       </dl>
     </Card>

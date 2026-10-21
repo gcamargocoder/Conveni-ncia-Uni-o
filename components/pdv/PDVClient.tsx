@@ -32,13 +32,6 @@ const FORMAS: { valor: FormaPagamento; rotulo: string; icone: typeof Banknote }[
   { valor: "fiado", rotulo: "Fiado", icone: HandCoins },
 ];
 
-// Tema escuro só da tela de venda: o "!" vence as classes claras dos componentes compartilhados (Card, Input, Button).
-const CARD_ESCURO = "!bg-surface !border-surface-border";
-const BOTAO_SECUNDARIO_ESCURO = "!bg-zinc-800/60 !text-zinc-300 !border-surface-border hover:!bg-zinc-800 hover:!text-white";
-const INPUT_ESCURO =
-  "[&_label]:!text-zinc-400 [&_input]:!bg-surface-elevated [&_input]:!text-white [&_input]:!border-surface-border " +
-  "[&_input]:placeholder:!text-zinc-500 [&_input:focus]:!border-brand-blue [&_input:focus]:!ring-2 [&_input:focus]:!ring-brand-blue [&_input:focus]:!ring-offset-0";
-
 interface PendenciaEstoqueComProduto extends PendenciaEstoque {
   produtoParaAdicionar?: ProdutoParaVenda;
 }
@@ -227,38 +220,37 @@ export function PDVClient() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)]">
     <main className="max-w-6xl mx-auto px-6 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-white">Venda</h1>
-        <p className="text-zinc-400 text-sm">Realizar venda</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Venda</h1>
+        <p className="text-slate-500 text-sm">Realizar venda</p>
       </header>
 
-      <Card className={CARD_ESCURO + " mb-4"}>
-        <p className="text-xs font-medium text-zinc-400 mb-2">
+      <Card className="mb-4">
+        <p className="text-xs font-medium text-slate-500 mb-2">
           Cliente na nota {formaPagamento === "fiado" ? "(obrigatório para fiado)" : "(opcional)"}
         </p>
 
         {clienteSelecionado ? (
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-surface-border bg-surface-elevated px-3 py-2">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
-              <User className="w-4 h-4 text-brand-blue shrink-0" />
+              <User className="w-4 h-4 text-brand-700 shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-white truncate">{clienteSelecionado.nome}</p>
-                {clienteSelecionado.telefone && <p className="text-xs text-zinc-400">{clienteSelecionado.telefone}</p>}
+                <p className="text-sm font-medium text-slate-800 truncate">{clienteSelecionado.nome}</p>
+                {clienteSelecionado.telefone && <p className="text-xs text-slate-500">{clienteSelecionado.telefone}</p>}
               </div>
             </div>
             <button
               onClick={() => setClienteSelecionado(null)}
               aria-label="Remover cliente selecionado"
-              className="text-zinc-500 hover:text-white transition-colors duration-150 shrink-0"
+              className="text-slate-400 hover:text-slate-600 shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
-          <Button variante="secondary" tamanho="sm" className={BOTAO_SECUNDARIO_ESCURO} onClick={() => setSelecionandoCliente(true)}>
-            <Search className="w-3.5 h-3.5 text-brand-blue" />
+          <Button variante="secondary" tamanho="sm" onClick={() => setSelecionandoCliente(true)}>
+            <Search className="w-3.5 h-3.5" />
             Buscar ou cadastrar cliente
           </Button>
         )}
@@ -266,11 +258,11 @@ export function PDVClient() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <Card className={CARD_ESCURO}>
+          <Card>
             <ProdutoBusca onSelecionar={aoSelecionarProduto} />
           </Card>
 
-          <Card semPadding className={CARD_ESCURO + " p-2"}>
+          <Card semPadding className="p-2">
             <CarrinhoView
               itens={carrinho}
               onAlterarQuantidade={aoAlterarQuantidadeNoCarrinho}
@@ -280,19 +272,19 @@ export function PDVClient() {
         </div>
 
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <Card className={CARD_ESCURO + " flex flex-col gap-5"}>
+          <Card className="flex flex-col gap-5">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-brand-blue" />
-              <h2 className="text-sm font-semibold text-zinc-300">Resumo da venda</h2>
+              <ShoppingCart className="w-4 h-4 text-brand-700" />
+              <h2 className="text-sm font-semibold text-slate-700">Resumo da venda</h2>
             </div>
 
-            <div className="flex flex-col gap-1 border-y border-surface-border py-5">
-              <span className="text-zinc-400 text-sm uppercase tracking-wider">Total a pagar</span>
-              <span className="text-5xl font-bold text-white tabular-nums text-right break-all">R$ {total.toFixed(2)}</span>
+            <div className="flex items-baseline justify-between border-y border-slate-100 py-4">
+              <span className="text-slate-500 text-sm">Total</span>
+              <span className="text-3xl font-bold text-slate-900 tabular-nums">R$ {total.toFixed(2)}</span>
             </div>
 
             <div>
-              <p className="text-xs font-medium text-zinc-400 mb-2">Forma de pagamento</p>
+              <p className="text-xs font-medium text-slate-500 mb-2">Forma de pagamento</p>
               <div className="grid grid-cols-2 gap-2">
                 {FORMAS.map((f) => {
                   const Icone = f.icone;
@@ -301,10 +293,10 @@ export function PDVClient() {
                     <button
                       key={f.valor}
                       onClick={() => aoTrocarFormaPagamento(f.valor)}
-                      className={`w-full flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg border text-sm font-medium transition-colors duration-150 ${
+                      className={`w-full flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border text-sm font-medium transition-colors ${
                         ativo
-                          ? "bg-brand-blue text-white border-brand-blue"
-                          : "bg-zinc-800/60 text-zinc-300 border-surface-border hover:border-brand-blue hover:text-white"
+                          ? "bg-brand-700 text-white border-brand-700"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-brand-600"
                       }`}
                     >
                       <Icone className="w-4 h-4" />
@@ -318,7 +310,6 @@ export function PDVClient() {
             {formaPagamento === "dinheiro" && (
               <div className="flex flex-col gap-1.5">
                 <Input
-                  className={INPUT_ESCURO}
                   rotulo="Valor recebido em dinheiro (opcional)"
                   type="number"
                   step="0.01"
@@ -329,7 +320,7 @@ export function PDVClient() {
                 {valorRecebido && (
                   <div
                     className={`flex justify-between items-baseline px-1 ${
-                      troco < 0 ? "text-red-400" : "text-white"
+                      troco < 0 ? "text-danger-600" : "text-slate-900"
                     }`}
                   >
                     <span className="text-sm font-medium">{troco < 0 ? "Falta:" : "Troco:"}</span>
@@ -342,7 +333,6 @@ export function PDVClient() {
             <Button
               tamanho="lg"
               larguraTotal
-              className="!h-16 !text-xl !bg-brand-blue hover:!bg-brand-blue-hover disabled:!bg-zinc-800 disabled:!text-zinc-500 shadow-lg shadow-brand-blue/20"
               disabled={carrinho.length === 0 || fiadoSemCliente}
               onClick={() => setPedindoPin(true)}
             >
@@ -350,12 +340,7 @@ export function PDVClient() {
             </Button>
 
             {carrinho.length > 0 && (
-              <Button
-                variante="ghost"
-                tamanho="sm"
-                className="!text-zinc-400 hover:!bg-zinc-800/40 hover:!text-white"
-                onClick={() => setPedindoCancelamento(true)}
-              >
+              <Button variante="ghost" tamanho="sm" onClick={() => setPedindoCancelamento(true)}>
                 Cancelar venda
               </Button>
             )}
@@ -398,6 +383,5 @@ export function PDVClient() {
         onSelecionar={aoSelecionarCliente}
       />
     </main>
-    </div>
   );
 }

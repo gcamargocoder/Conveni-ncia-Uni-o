@@ -5,15 +5,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Azul extraído diretamente da logo do Auto Posto União (#213E8C)
-        // — cor de marca oficial, principal do sistema.
+        // Azul corporativo (tema claro GC-Sys): 700 = #1E40AF (primário), 600 = #2563EB.
         brand: {
-          50: "#F2F3F8",
-          100: "#DEE2EE",
-          200: "#C3CBE3",
-          600: "#3C559A",
-          700: "#213E8C",
-          900: "#15285B",
+          50: "#EFF6FF",
+          100: "#DBEAFE",
+          200: "#BFDBFE",
+          600: "#2563EB",
+          700: "#1E40AF",
+          900: "#1E3A8A",
         },
         // Laranja da chama/faixa da logo — só para destaques estratégicos
         // pontuais (nunca como cor de fundo extensa).

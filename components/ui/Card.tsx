@@ -13,7 +13,7 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export function Card({ semPadding, className = "", children, ...props }: CardProps) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white shadow-card ${semPadding ? "" : "p-5"} ${className}`}
+      className={`rounded-2xl border border-slate-200 bg-white shadow-card ${semPadding ? "" : "p-5"} ${className}`}
       {...props}
     >
       {children}

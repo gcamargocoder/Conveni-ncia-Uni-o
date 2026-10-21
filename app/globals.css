@@ -21,7 +21,7 @@
   }
 
   body {
-    @apply antialiased;
+    @apply antialiased bg-slate-50 text-slate-900;
     text-rendering: optimizeLegibility;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
