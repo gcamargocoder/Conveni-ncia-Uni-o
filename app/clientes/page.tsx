@@ -2,6 +2,7 @@ import { Users } from "lucide-react";
 import { listarClientes } from "@/services/clientes.service";
 import { ClienteCadastroModal } from "@/components/clientes/ClienteCadastroModal";
 import { ListaClientes } from "@/components/clientes/ListaClientes";
+import { AutorizacaoPinProvider } from "@/components/auth/useAutorizacaoPin";
 import { Card } from "@/components/ui/Card";
 import { exigirSessao } from "@/lib/auth/servidor";
 
@@ -12,6 +13,7 @@ export default async function ClientesPage() {
   const clientes = await listarClientes();
 
   return (
+    <AutorizacaoPinProvider>
     <main className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -29,5 +31,6 @@ export default async function ClientesPage() {
         <ListaClientes clientes={clientes} />
       </Card>
     </main>
+    </AutorizacaoPinProvider>
   );
 }

@@ -4,6 +4,7 @@ import { listarFornecedores } from "@/services/fornecedores.service";
 import { listarCategorias } from "@/services/categorias.service";
 import { ProdutoCadastroModal } from "@/components/produtos/ProdutoCadastroModal";
 import { ProdutoEditarModal } from "@/components/produtos/ProdutoEditarModal";
+import { AutorizacaoPinProvider } from "@/components/auth/useAutorizacaoPin";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
@@ -23,6 +24,7 @@ export default async function ProdutosPage() {
   const fornecedoresOpcoes = fornecedores.map((f) => ({ id: f.id, nome: f.nome }));
 
   return (
+    <AutorizacaoPinProvider>
     <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -69,5 +71,6 @@ export default async function ProdutosPage() {
         />
       </Card>
     </main>
+    </AutorizacaoPinProvider>
   );
 }

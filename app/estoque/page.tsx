@@ -1,5 +1,6 @@
 import { listarEstoqueAtual } from "@/services/estoque.service";
 import { ListaEstoque } from "@/components/estoque/ListaEstoque";
+import { AutorizacaoPinProvider } from "@/components/auth/useAutorizacaoPin";
 import { Card } from "@/components/ui/Card";
 import { exigirSessao } from "@/lib/auth/servidor";
 
@@ -10,6 +11,7 @@ export default async function EstoquePage() {
   const estoque = await listarEstoqueAtual();
 
   return (
+    <AutorizacaoPinProvider>
     <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
       <header className="no-print">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Estoque</h1>
@@ -20,5 +22,6 @@ export default async function EstoquePage() {
         <ListaEstoque estoque={estoque} />
       </Card>
     </main>
+    </AutorizacaoPinProvider>
   );
 }

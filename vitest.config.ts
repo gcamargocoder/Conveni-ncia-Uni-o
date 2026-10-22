@@ -2,6 +2,8 @@ import { defineConfig, configDefaults } from "vitest/config";
 import path from "path";
 
 export default defineConfig({
+  // JSX como no Next (runtime automático): componentes e ganchos podem ser testados sem importar React.
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
