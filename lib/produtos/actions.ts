@@ -1,6 +1,7 @@
 "use server";
 
 import { verificarAcesso } from "@/lib/auth/servidor";
+import { autorizarPorPin } from "@/lib/auth/autorizacao";
 import { revalidatePath } from "next/cache";
 import { criarProduto, atualizarProduto, desativarProduto } from "@/services/produtos.service";
 import { validarProduto, DadosProduto } from "@/lib/produtos/validacao";
@@ -9,6 +10,14 @@ export interface ResultadoAcaoProduto {
   sucesso: boolean;
   erros?: { campo: string; mensagem: string }[];
   erroGeral?: string;
+  /** Preenchido quando o PIN/cargo não autoriza a operação (a tela mantém o pedido de PIN aberto). */
+  erroAutorizacao?: string;
+}
+
+async function negar(pin: string): Promise<ResultadoAcaoProduto | null> {
+  const autorizacao = await autorizarPorPin(pin, "produtos.editar");
+  if (autorizacao.ok) return null;
+  return { sucesso: false, erroGeral: autorizacao.erro, erroAutorizacao: autorizacao.erro };
 }
 
 function normalizarCodigoBarras(dados: DadosProduto): DadosProduto {
@@ -16,9 +25,11 @@ function normalizarCodigoBarras(dados: DadosProduto): DadosProduto {
   return { ...dados, codigo_barras: codigo ? codigo : null };
 }
 
-export async function criarProdutoAction(dados: DadosProduto): Promise<ResultadoAcaoProduto> {
+export async function criarProdutoAction(dados: DadosProduto, pinAutorizador: string): Promise<ResultadoAcaoProduto> {
   const acesso = await verificarAcesso();
   if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
+  const negado = await negar(pinAutorizador);
+  if (negado) return negado;
   const dadosNormalizados = normalizarCodigoBarras(dados);
   const erros = validarProduto(dadosNormalizados);
   if (erros.length > 0) return { sucesso: false, erros };
@@ -34,10 +45,13 @@ export async function criarProdutoAction(dados: DadosProduto): Promise<Resultado
 
 export async function atualizarProdutoAction(
   id: string,
-  dados: DadosProduto
+  dados: DadosProduto,
+  pinAutorizador: string
 ): Promise<ResultadoAcaoProduto> {
   const acesso = await verificarAcesso();
   if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
+  const negado = await negar(pinAutorizador);
+  if (negado) return negado;
   const dadosNormalizados = normalizarCodigoBarras(dados);
   const erros = validarProduto(dadosNormalizados);
   if (erros.length > 0) return { sucesso: false, erros };
@@ -51,9 +65,11 @@ export async function atualizarProdutoAction(
   }
 }
 
-export async function desativarProdutoAction(id: string): Promise<ResultadoAcaoProduto> {
+export async function desativarProdutoAction(id: string, pinAutorizador: string): Promise<ResultadoAcaoProduto> {
   const acesso = await verificarAcesso();
   if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
+  const negado = await negar(pinAutorizador);
+  if (negado) return negado;
   try {
     await desativarProduto(id);
     revalidatePath("/produtos");
@@ -69,9 +85,11 @@ export async function desativarProdutoAction(id: string): Promise<ResultadoAcaoP
  * "Editar" da tela de Estoque, onde não faz sentido pedir o cadastro
  * completo de novo só para corrigir um nome.
  */
-export async function renomearProdutoAction(id: string, novoNome: string): Promise<ResultadoAcaoProduto> {
+export async function renomearProdutoAction(id: string, novoNome: string, pinAutorizador: string): Promise<ResultadoAcaoProduto> {
   const acesso = await verificarAcesso();
   if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
+  const negado = await negar(pinAutorizador);
+  if (negado) return negado;
   const nome = novoNome.trim();
   if (nome.length < 2) {
     return { sucesso: false, erros: [{ campo: "nome", mensagem: "Nome deve ter pelo menos 2 caracteres." }] };
@@ -94,9 +112,11 @@ export async function renomearProdutoAction(id: string, novoNome: string): Promi
  * Estoque, para quem quiser um valor diferente do padrão (10) para um
  * produto específico (ex: um item que vende muito rápido).
  */
-export async function ajustarEstoqueMinimoAction(id: string, novoMinimo: number): Promise<ResultadoAcaoProduto> {
+export async function ajustarEstoqueMinimoAction(id: string, novoMinimo: number, pinAutorizador: string): Promise<ResultadoAcaoProduto> {
   const acesso = await verificarAcesso();
   if (!acesso.ok) return { sucesso: false, erroGeral: acesso.erro };
+  const negado = await negar(pinAutorizador);
+  if (negado) return negado;
   if (novoMinimo < 0 || !Number.isFinite(novoMinimo)) {
     return { sucesso: false, erros: [{ campo: "estoque_minimo", mensagem: "Valor inválido." }] };
   }

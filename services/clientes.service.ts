@@ -64,5 +64,16 @@ export async function excluirCliente(id: string): Promise<void> {
     );
   }
 
+  const temContas = await executar<{ id: string } | null>(
+    () => prisma.contaReceber.findFirst({ where: { cliente_id: id }, select: { id: true } }),
+    "Erro ao verificar contas a receber do cliente"
+  );
+
+  if (temContas) {
+    throw new Error(
+      'Este cliente possui contas a receber registradas (histórico financeiro) e não pode ser excluído — use "Desativar" para escondê-lo das listas sem perder o histórico.'
+    );
+  }
+
   await executar(() => prisma.cliente.delete({ where: { id } }), "Erro ao excluir cliente");
 }

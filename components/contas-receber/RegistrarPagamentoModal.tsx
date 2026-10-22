@@ -109,7 +109,7 @@ export function RegistrarPagamentoModal({
       </Modal>
 
       <Modal aberto={pedindoPin} titulo="Autorizar pagamento" onFechar={() => setPedindoPin(false)}>
-        <p className="mb-4">Digite o PIN de quem está autorizando este pagamento:</p>
+        <p className="mb-4">Digite o PIN do proprietário ou do gerente para autorizar este pagamento:</p>
         <PinInput modo="confirmacao" onPinCompleto={confirmarComPin} onSucesso={() => setPedindoPin(false)} />
       </Modal>
     </>

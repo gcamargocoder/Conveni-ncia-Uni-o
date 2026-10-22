@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { Funcionario, Cargo } from "@/types/funcionario";
+import { FuncionarioPublico, Cargo } from "@/types/funcionario";
 import { atualizarFuncionarioAction, excluirFuncionarioAction } from "@/lib/auth/funcionarios-actions";
 import { PinInput } from "@/components/auth/PinInput";
 import { Button } from "@/components/ui/Button";
@@ -23,7 +23,7 @@ const CARGOS: { valor: Cargo; rotulo: string }[] = [
 type AcaoPendente = "nome" | "cargo" | "pin" | "excluir" | null;
 
 interface FuncionarioEditarModalProps {
-  funcionario: Funcionario;
+  funcionario: FuncionarioPublico;
 }
 
 export function FuncionarioEditarModal({ funcionario }: FuncionarioEditarModalProps) {

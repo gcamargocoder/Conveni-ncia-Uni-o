@@ -7,11 +7,51 @@ import {
   buscarFuncionarioPorId,
   atualizarFuncionario,
   excluirFuncionario,
+  contarProprietariosAtivos,
+  pinEmUsoPorOutro,
+  criarProprietarioInicial,
+  ProprietarioJaConfiguradoError,
 } from "@/services/funcionarios.service";
 import { validarPinAction } from "@/lib/auth/actions";
 import { possuiPermissao, podeGerenciarFuncionario } from "@/lib/auth/permissoes";
 import { validarFormatoPin } from "@/lib/auth/pin";
 import { Cargo } from "@/types/funcionario";
+
+/**
+ * Configuração inicial: cria o primeiro proprietário (e seu PIN administrativo). Só o administrador
+ * da conta de login pode fazê-lo, e só enquanto não existir nenhum proprietário ativo — depois disso
+ * o fluxo fica fechado e o PIN só muda pela edição de funcionário, autorizada por outro PIN.
+ */
+export async function configurarProprietarioInicialAction(input: { nome: string; pin: string; confirmacaoPin: string }) {
+  const acesso = await verificarAcesso("admin");
+  if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
+
+  if (!input.nome || input.nome.trim().length < 2) {
+    return { sucesso: false, erro: "Nome deve ter pelo menos 2 caracteres." };
+  }
+  if (!validarFormatoPin(input.pin)) {
+    return { sucesso: false, erro: "O PIN deve ter 4 dígitos." };
+  }
+  if (input.pin !== input.confirmacaoPin) {
+    return { sucesso: false, erro: "A confirmação do PIN não confere." };
+  }
+
+  try {
+    // Defesa extra: se já existir PIN de outro funcionário igual, a identificação ficaria ambígua.
+    if (await pinEmUsoPorOutro(input.pin)) {
+      return { sucesso: false, erro: "Esse PIN já está em uso. Escolha outro." };
+    }
+    const criado = await criarProprietarioInicial({ nome: input.nome.trim(), pin: input.pin });
+    console.info(`[auth] proprietário inicial configurado funcionario=${criado.id} usuario=${acesso.sessao.usuario.id}`);
+    revalidatePath("/funcionarios");
+    return { sucesso: true };
+  } catch (e) {
+    if (e instanceof ProprietarioJaConfiguradoError) {
+      return { sucesso: false, erro: "O proprietário já foi configurado. Use a edição de funcionários." };
+    }
+    return { sucesso: false, erro: (e as Error).message };
+  }
+}
 
 export async function criarFuncionarioAction(
   input: { nome: string; cargo: Cargo; pin: string },
@@ -37,6 +77,9 @@ export async function criarFuncionarioAction(
   }
 
   try {
+    if (await pinEmUsoPorOutro(input.pin)) {
+      return { sucesso: false, erro: "Esse PIN já está em uso por outro funcionário." };
+    }
     await criarFuncionario(input);
     revalidatePath("/funcionarios");
     return { sucesso: true };
@@ -74,7 +117,15 @@ export async function atualizarFuncionarioAction(
     return { sucesso: false, erro: "Seu cargo não pode atribuir esse cargo." };
   }
 
+  const trocaCargoDoProprietario = alvo.cargo === "proprietario" && dados.cargo !== undefined && dados.cargo !== "proprietario";
+  if (trocaCargoDoProprietario && alvo.ativo && (await contarProprietariosAtivos()) <= 1) {
+    return { sucesso: false, erro: "Não é possível rebaixar o único proprietário ativo." };
+  }
+
   try {
+    if (dados.pin !== undefined && (await pinEmUsoPorOutro(dados.pin, id))) {
+      return { sucesso: false, erro: "Esse PIN já está em uso por outro funcionário." };
+    }
     await atualizarFuncionario(id, dados);
     revalidatePath("/funcionarios");
     return { sucesso: true };
@@ -100,6 +151,10 @@ export async function excluirFuncionarioAction(id: string, pinAutorizador: strin
 
   if (!podeGerenciarFuncionario(auth.funcionario.cargo, alvo.cargo)) {
     return { sucesso: false, erro: "Seu cargo não pode excluir esse funcionário." };
+  }
+
+  if (alvo.cargo === "proprietario" && alvo.ativo && (await contarProprietariosAtivos()) <= 1) {
+    return { sucesso: false, erro: "Não é possível excluir o único proprietário ativo." };
   }
 
   try {

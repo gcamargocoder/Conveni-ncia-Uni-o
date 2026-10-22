@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { useAutorizacaoPin } from "@/components/auth/useAutorizacaoPin";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { renomearProdutoAction, ajustarEstoqueMinimoAction } from "@/lib/produtos/actions";
@@ -23,11 +24,13 @@ export function ProdutoEstoqueModal({ produtoId, produtoNome, estoqueMinimo }: P
   const [minimo, setMinimo] = useState(estoqueMinimo);
   const [salvandoMinimo, setSalvandoMinimo] = useState(false);
   const { mostrar } = useToast();
+  const { autorizar, modalPin } = useAutorizacaoPin();
 
   async function salvarNome() {
     setSalvandoNome(true);
-    const resultado = await renomearProdutoAction(produtoId, nome);
+    const resultado = await autorizar((pin) => renomearProdutoAction(produtoId, nome, pin));
     setSalvandoNome(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       mostrar("danger", resultado.erroGeral ?? resultado.erros?.[0]?.mensagem ?? "Erro ao renomear.");
@@ -38,8 +41,9 @@ export function ProdutoEstoqueModal({ produtoId, produtoNome, estoqueMinimo }: P
 
   async function salvarMinimo() {
     setSalvandoMinimo(true);
-    const resultado = await ajustarEstoqueMinimoAction(produtoId, minimo);
+    const resultado = await autorizar((pin) => ajustarEstoqueMinimoAction(produtoId, minimo, pin));
     setSalvandoMinimo(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       mostrar("danger", resultado.erroGeral ?? resultado.erros?.[0]?.mensagem ?? "Erro ao ajustar.");
@@ -115,6 +119,8 @@ export function ProdutoEstoqueModal({ produtoId, produtoNome, estoqueMinimo }: P
           </section>
         </div>
       </Modal>
+
+      {modalPin}
     </>
   );
 }

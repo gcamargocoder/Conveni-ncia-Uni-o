@@ -7,6 +7,7 @@ import { DadosProduto, precoVendaAbaixoDoCusto, PADRAO_ESTOQUE_MINIMO } from "@/
 import { criarProdutoAction, atualizarProdutoAction } from "@/lib/produtos/actions";
 import { criarCategoriaAction } from "@/lib/produtos/categorias-actions";
 import { criarFornecedorAction } from "@/lib/produtos/fornecedores-actions";
+import { useAutorizacaoPin } from "@/components/auth/useAutorizacaoPin";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -60,6 +61,7 @@ export function ProdutoForm({
   const [pedindoConfirmacaoMargem, setPedindoConfirmacaoMargem] = useState(false);
   const [leitorCameraAberto, setLeitorCameraAberto] = useState(false);
   const { mostrar } = useToast();
+  const { autorizar, modalPin } = useAutorizacaoPin();
 
   const emEdicao = !!produtoId;
   const alertaMargem = precoVendaAbaixoDoCusto(dados);
@@ -71,11 +73,12 @@ export function ProdutoForm({
     setErros({});
     setPedindoConfirmacaoMargem(false);
 
-    const resultado = emEdicao
-      ? await atualizarProdutoAction(produtoId, dados)
-      : await criarProdutoAction(dados);
+    const resultado = await autorizar((pin) =>
+      emEdicao ? atualizarProdutoAction(produtoId, dados, pin) : criarProdutoAction(dados, pin)
+    );
 
     setSalvando(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       if (resultado.erros) {
@@ -138,9 +141,9 @@ export function ProdutoForm({
             disabled={criandoCategoria || novaCategoria.trim().length < 2}
             onClick={async () => {
               setCriandoCategoria(true);
-              const resultado = await criarCategoriaAction(novaCategoria);
+              const resultado = await autorizar((pin) => criarCategoriaAction(novaCategoria, pin));
               setCriandoCategoria(false);
-              if (resultado.sucesso && resultado.categoria) {
+              if (resultado?.sucesso && resultado.categoria) {
                 setCategorias((c) => [...c, resultado.categoria!]);
                 setDados((d) => ({ ...d, categoria_id: resultado.categoria!.id }));
                 setNovaCategoria("");
@@ -180,9 +183,9 @@ export function ProdutoForm({
             disabled={criandoFornecedor || novoFornecedor.trim().length < 2}
             onClick={async () => {
               setCriandoFornecedor(true);
-              const resultado = await criarFornecedorAction({ nome: novoFornecedor.trim() });
+              const resultado = await autorizar((pin) => criarFornecedorAction({ nome: novoFornecedor.trim() }, pin));
               setCriandoFornecedor(false);
-              if (resultado.sucesso && resultado.fornecedor) {
+              if (resultado?.sucesso && resultado.fornecedor) {
                 setFornecedores((f) => [...f, resultado.fornecedor!]);
                 setDados((d) => ({ ...d, fornecedor_id: resultado.fornecedor!.id }));
                 setNovoFornecedor("");
@@ -288,6 +291,8 @@ export function ProdutoForm({
       <Button tamanho="lg" carregando={salvando} disabled={salvando} onClick={aoClicarSalvar}>
         {emEdicao ? "Salvar alterações" : "Salvar produto"}
       </Button>
+
+      {modalPin}
 
       <Modal
         aberto={pedindoConfirmacaoMargem}

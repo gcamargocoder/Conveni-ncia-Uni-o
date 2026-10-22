@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
+import { useAutorizacaoPin } from "@/components/auth/useAutorizacaoPin";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -23,14 +24,16 @@ export function CategoriaEditarModal({ categoria }: CategoriaEditarModalProps) {
   const [pedindoConfirmacaoExcluir, setPedindoConfirmacaoExcluir] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const { mostrar } = useToast();
+  const { autorizar, modalPin } = useAutorizacaoPin();
 
   async function salvar() {
     if (salvando) return;
     setSalvando(true);
     setErro(null);
 
-    const resultado = await atualizarCategoriaAction(categoria.id, nome);
+    const resultado = await autorizar((pin) => atualizarCategoriaAction(categoria.id, nome, pin));
     setSalvando(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       setErro(resultado.erro ?? "Erro ao salvar.");
@@ -42,9 +45,10 @@ export function CategoriaEditarModal({ categoria }: CategoriaEditarModalProps) {
 
   async function confirmarExcluir() {
     setExcluindo(true);
-    const resultado = await excluirCategoriaAction(categoria.id);
+    const resultado = await autorizar((pin) => excluirCategoriaAction(categoria.id, pin));
     setExcluindo(false);
     setPedindoConfirmacaoExcluir(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       mostrar("danger", resultado.erro ?? "Erro ao excluir categoria.");
@@ -77,6 +81,8 @@ export function CategoriaEditarModal({ categoria }: CategoriaEditarModalProps) {
           </div>
         </div>
       </Modal>
+
+      {modalPin}
 
       <Modal
         aberto={pedindoConfirmacaoExcluir}

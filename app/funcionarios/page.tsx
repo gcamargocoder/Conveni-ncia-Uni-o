@@ -1,7 +1,9 @@
 import { Users } from "lucide-react";
-import { listarFuncionarios } from "@/services/funcionarios.service";
+import { listarFuncionarios, contarProprietariosAtivos } from "@/services/funcionarios.service";
 import { FuncionarioCadastroModal } from "@/components/funcionarios/FuncionarioCadastroModal";
 import { FuncionarioEditarModal } from "@/components/funcionarios/FuncionarioEditarModal";
+import { ConfigurarProprietarioForm } from "@/components/funcionarios/ConfigurarProprietarioForm";
+import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
@@ -10,8 +12,10 @@ import { exigirSessao } from "@/lib/auth/servidor";
 export const dynamic = "force-dynamic";
 
 export default async function FuncionariosPage() {
-  await exigirSessao();
-  const funcionarios = await listarFuncionarios();
+  const sessao = await exigirSessao();
+  const [funcionarios, proprietarios] = await Promise.all([listarFuncionarios(), contarProprietariosAtivos()]);
+  const configuracaoInicialPendente = proprietarios === 0;
+  const ehAdmin = sessao.usuario.papel === "admin";
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-6">
@@ -19,8 +23,20 @@ export default async function FuncionariosPage() {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Funcionários</h1>
         <p className="text-slate-500 text-sm">Cadastro e cargos</p>
       </div>
-        <FuncionarioCadastroModal />
+        {!configuracaoInicialPendente && <FuncionarioCadastroModal />}
       </header>
+
+      {configuracaoInicialPendente &&
+        (ehAdmin ? (
+          <Card>
+            <ConfigurarProprietarioForm />
+          </Card>
+        ) : (
+          <Alert variante="warning" titulo="Configuração inicial pendente">
+            O PIN do proprietário ainda não foi definido. Peça ao administrador do sistema para concluir a
+            configuração.
+          </Alert>
+        ))}
 
       <Card semPadding>
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">

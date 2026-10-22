@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { criarClienteAction, atualizarClienteAction } from "@/lib/clientes/actions";
 import { DadosCliente } from "@/lib/clientes/validacao";
+import { useAutorizacaoPin } from "@/components/auth/useAutorizacaoPin";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -30,6 +31,7 @@ export function ClienteForm({ clienteId, dadosIniciais, onSucesso }: ClienteForm
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const { mostrar } = useToast();
+  const { autorizar, modalPin } = useAutorizacaoPin();
 
   const emEdicao = !!clienteId;
 
@@ -39,9 +41,12 @@ export function ClienteForm({ clienteId, dadosIniciais, onSucesso }: ClienteForm
     setErroGeral(null);
     setErros({});
 
-    const resultado = emEdicao ? await atualizarClienteAction(clienteId, dados) : await criarClienteAction(dados);
+    const resultado = await autorizar((pin) =>
+      emEdicao ? atualizarClienteAction(clienteId, dados, pin) : criarClienteAction(dados, pin)
+    );
 
     setSalvando(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       if (resultado.erros) {
@@ -111,6 +116,8 @@ export function ClienteForm({ clienteId, dadosIniciais, onSucesso }: ClienteForm
       <Button onClick={salvar} carregando={salvando} disabled={salvando || dados.nome.trim().length < 2}>
         {emEdicao ? "Salvar alterações" : "Cadastrar cliente"}
       </Button>
+
+      {modalPin}
     </div>
   );
 }

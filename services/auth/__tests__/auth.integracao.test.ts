@@ -322,7 +322,7 @@ describe("autorização no servidor", () => {
   it("sem sessão: todas as Server Actions de negócio e administrativas são recusadas", async () => {
     const negado = "Sua sessão expirou. Entre novamente para continuar.";
 
-    expect(await criarClienteAction({ nome: "Fulano" })).toMatchObject({ sucesso: false, erroGeral: negado });
+    expect(await criarClienteAction({ nome: "Fulano" }, "1234")).toMatchObject({ sucesso: false, erroGeral: negado });
     expect(await gerarBackupAction()).toMatchObject({ sucesso: false, erro: negado });
     expect(await registrarMovimentacaoAction({ produto_id: "x", tipo: "entrada", quantidade: 1 }, "1234")).toMatchObject({ sucesso: false });
     await expect(buscarAlteracoesCatalogoAction(null)).rejects.toThrow(negado);
@@ -335,7 +335,9 @@ describe("autorização no servidor", () => {
     await novoUsuario("op@loja.com", "operador");
     await entrarComo("op@loja.com");
 
-    expect((await criarClienteAction({ nome: "Fulano" })).sucesso).toBe(true);
+    // Cadastrar cliente agora exige também o PIN de proprietário/gerente: só o login não basta.
+    expect((await criarClienteAction({ nome: "Fulano" }, "")).sucesso).toBe(false);
+    await expect(buscarAlteracoesCatalogoAction(null)).resolves.toBeDefined();
 
     expect((await gerarBackupAction()).sucesso).toBe(false);
     expect((await alterarAtivoUsuarioAction("00000000-0000-0000-0000-000000000000", false)).sucesso).toBe(false);
@@ -353,11 +355,11 @@ describe("autorização no servidor", () => {
     await novoUsuario("adm@loja.com", "admin");
     const op = await novoUsuario("op@loja.com", "operador");
     await entrarComo("op@loja.com");
-    expect((await criarClienteAction({ nome: "Antes" })).sucesso).toBe(true);
+    await expect(buscarAlteracoesCatalogoAction(null)).resolves.toBeDefined();
 
     await definirAtivo(op.id, false, "outro");
 
-    expect((await criarClienteAction({ nome: "Depois" })).sucesso).toBe(false);
+    await expect(buscarAlteracoesCatalogoAction(null)).rejects.toThrow();
     expect(await prisma.sessao.count({ where: { usuario_id: op.id } })).toBe(0);
   });
 

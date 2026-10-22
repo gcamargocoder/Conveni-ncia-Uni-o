@@ -13,6 +13,8 @@ export type Permissao =
   | "estoque.ajuste"
   | "produtos.editar"
   | "funcionarios.gerenciar"
+  | "clientes.gerenciar"
+  | "contas_receber.registrar_pagamento"
   | "relatorios.visualizar";
 
 const PERMISSOES_POR_CARGO: Record<Cargo, Permissao[]> = {
@@ -23,6 +25,8 @@ const PERMISSOES_POR_CARGO: Record<Cargo, Permissao[]> = {
     "estoque.ajuste",
     "produtos.editar",
     "funcionarios.gerenciar",
+    "clientes.gerenciar",
+    "contas_receber.registrar_pagamento",
     "relatorios.visualizar",
   ],
   gerente: [
@@ -31,6 +35,9 @@ const PERMISSOES_POR_CARGO: Record<Cargo, Permissao[]> = {
     "estoque.entrada",
     "estoque.ajuste",
     "produtos.editar",
+    "funcionarios.gerenciar",
+    "clientes.gerenciar",
+    "contas_receber.registrar_pagamento",
     "relatorios.visualizar",
   ],
   caixa: ["pdv.vender"],
@@ -63,17 +70,12 @@ export function cargosComPinOffline(): Cargo[] {
 }
 
 /**
- * Hierarquia de quem pode editar/excluir quem — diferente de
- * "funcionarios.gerenciar" (usada só para CRIAR, hoje restrita ao
- * proprietário). Editar/excluir segue uma regra de hierarquia própria:
- * o proprietário gerencia todo mundo; o gerente gerencia caixa e
- * estoquista, mas nunca outro gerente nem o proprietário; caixa e
- * estoquista não gerenciam ninguém.
+ * Quem pode editar/excluir quem. Proprietário e gerente têm as mesmas
+ * permissões administrativas (decisão do estabelecimento): quem possui
+ * "funcionarios.gerenciar" gerencia qualquer cargo. Os demais cargos não
+ * gerenciam ninguém. A proteção contra ficar sem nenhum proprietário ativo
+ * é uma regra de dados e fica nas Server Actions.
  */
-export function podeGerenciarFuncionario(cargoAutorizador: Cargo, cargoAlvo: Cargo): boolean {
-  if (cargoAutorizador === "proprietario") return true;
-  if (cargoAutorizador === "gerente") {
-    return cargoAlvo === "caixa" || cargoAlvo === "estoquista" || cargoAlvo === "frentista";
-  }
-  return false;
+export function podeGerenciarFuncionario(cargoAutorizador: Cargo, _cargoAlvo: Cargo): boolean {
+  return possuiPermissao(cargoAutorizador, "funcionarios.gerenciar");
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { criarFornecedorAction, atualizarFornecedorAction } from "@/lib/produtos/fornecedores-actions";
 import { DadosFornecedor } from "@/lib/fornecedores/validacao";
+import { useAutorizacaoPin } from "@/components/auth/useAutorizacaoPin";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -40,6 +41,7 @@ export function FornecedorForm({ fornecedorId, dadosIniciais, onSucesso }: Forne
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const { mostrar } = useToast();
+  const { autorizar, modalPin } = useAutorizacaoPin();
 
   const emEdicao = !!fornecedorId;
 
@@ -49,11 +51,12 @@ export function FornecedorForm({ fornecedorId, dadosIniciais, onSucesso }: Forne
     setErroGeral(null);
     setErros({});
 
-    const resultado = emEdicao
-      ? await atualizarFornecedorAction(fornecedorId, dados)
-      : await criarFornecedorAction(dados);
+    const resultado = await autorizar((pin) =>
+      emEdicao ? atualizarFornecedorAction(fornecedorId, dados, pin) : criarFornecedorAction(dados, pin)
+    );
 
     setSalvando(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       if (resultado.erros) {
@@ -168,6 +171,8 @@ export function FornecedorForm({ fornecedorId, dadosIniciais, onSucesso }: Forne
       <Button onClick={salvar} carregando={salvando} disabled={salvando || dados.nome.trim().length < 2}>
         {emEdicao ? "Salvar alterações" : "Adicionar fornecedor"}
       </Button>
+
+      {modalPin}
     </div>
   );
 }

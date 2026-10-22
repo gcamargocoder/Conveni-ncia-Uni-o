@@ -11,7 +11,7 @@ import {
   DetalheCliente,
 } from "@/services/contas-receber.service";
 import { validarPagamento, DadosFormPagamento } from "@/lib/contas-receber/validacao";
-import { validarPinAction } from "@/lib/auth/actions";
+import { autorizarPorPin } from "@/lib/auth/autorizacao";
 
 export async function buscarContaAction(id: string): Promise<DetalheContaReceber | null> {
   const acesso = await verificarAcesso();
@@ -30,6 +30,7 @@ export interface ResultadoAcaoPagamento {
   erro?: string;
   saldoAtual?: number;
   status?: string;
+  erroAutorizacao?: string;
 }
 
 export async function registrarPagamentoAction(
@@ -45,9 +46,11 @@ export async function registrarPagamentoAction(
     return { sucesso: false, erro: erros[0].mensagem };
   }
 
-  const auth = await validarPinAction(pin);
-  if (!auth.sucesso || !auth.funcionario) {
-    return { sucesso: false, erro: "PIN inválido." };
+  // Quem autoriza é o PIN de um cargo com "contas_receber.registrar_pagamento" (proprietário/gerente);
+  // o PIN de caixa, frentista ou estoquista é recusado aqui, mesmo numa chamada direta da action.
+  const auth = await autorizarPorPin(pin, "contas_receber.registrar_pagamento");
+  if (!auth.ok) {
+    return { sucesso: false, erro: auth.erro, erroAutorizacao: auth.erro };
   }
 
   try {

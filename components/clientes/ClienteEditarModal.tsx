@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
+import { useAutorizacaoPin } from "@/components/auth/useAutorizacaoPin";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -21,12 +22,14 @@ export function ClienteEditarModal({ cliente }: ClienteEditarModalProps) {
   const [desativando, setDesativando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const { mostrar } = useToast();
+  const { autorizar, modalPin } = useAutorizacaoPin();
 
   async function confirmarDesativar() {
     setDesativando(true);
-    const resultado = await desativarClienteAction(cliente.id);
+    const resultado = await autorizar((pin) => desativarClienteAction(cliente.id, pin));
     setDesativando(false);
     setPedindoConfirmacaoDesativar(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       mostrar("danger", resultado.erroGeral ?? "Erro ao desativar cliente.");
@@ -38,9 +41,10 @@ export function ClienteEditarModal({ cliente }: ClienteEditarModalProps) {
 
   async function confirmarExcluir() {
     setExcluindo(true);
-    const resultado = await excluirClienteAction(cliente.id);
+    const resultado = await autorizar((pin) => excluirClienteAction(cliente.id, pin));
     setExcluindo(false);
     setPedindoConfirmacaoExcluir(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso) {
       mostrar("danger", resultado.erroGeral ?? "Erro ao excluir cliente.");
@@ -126,6 +130,8 @@ export function ClienteEditarModal({ cliente }: ClienteEditarModalProps) {
           venda.
         </p>
       </Modal>
+
+      {modalPin}
     </>
   );
 }

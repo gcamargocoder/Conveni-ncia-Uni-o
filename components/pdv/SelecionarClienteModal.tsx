@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Search, UserPlus, ArrowLeft } from "lucide-react";
+import { useAutorizacaoPin } from "@/components/auth/useAutorizacaoPin";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -25,6 +26,7 @@ export function SelecionarClienteModal({ aberto, onFechar, onSelecionar }: Selec
   const [telefoneNovo, setTelefoneNovo] = useState("");
   const [erroCadastro, setErroCadastro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const { autorizar, modalPin } = useAutorizacaoPin();
 
   useEffect(() => {
     if (!aberto) {
@@ -66,16 +68,24 @@ export function SelecionarClienteModal({ aberto, onFechar, onSelecionar }: Selec
     setSalvando(true);
     setErroCadastro(null);
 
-    const resultado = await criarClienteAction({
-      nome: nomeNovo.trim(),
-      telefone: telefoneNovo.trim() || null,
-      cpf: null,
-      endereco: null,
-      observacoes: null,
-      ativo: true,
-    });
+    // Cadastrar cliente é operação administrativa: o PDV pede o PIN do proprietário/gerente.
+    // Consultar e selecionar clientes, e vender sem cliente, não pedem nada.
+    const resultado = await autorizar((pin) =>
+      criarClienteAction(
+        {
+          nome: nomeNovo.trim(),
+          telefone: telefoneNovo.trim() || null,
+          cpf: null,
+          endereco: null,
+          observacoes: null,
+          ativo: true,
+        },
+        pin
+      )
+    );
 
     setSalvando(false);
+    if (!resultado) return;
 
     if (!resultado.sucesso || !resultado.cliente) {
       setErroCadastro(resultado.erros?.[0]?.mensagem ?? resultado.erroGeral ?? "Erro ao cadastrar cliente.");
@@ -98,6 +108,7 @@ export function SelecionarClienteModal({ aberto, onFechar, onSelecionar }: Selec
   }
 
   return (
+    <>
     <Modal aberto={aberto} titulo={cadastrando ? "Cadastro rápido" : "Selecionar cliente"} onFechar={onFechar}>
       {!cadastrando ? (
         <div className="flex flex-col gap-3">
@@ -156,5 +167,7 @@ export function SelecionarClienteModal({ aberto, onFechar, onSelecionar }: Selec
         </div>
       )}
     </Modal>
+    {modalPin}
+    </>
   );
 }

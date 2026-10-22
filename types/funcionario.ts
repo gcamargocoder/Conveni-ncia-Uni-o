@@ -8,3 +8,6 @@ export interface Funcionario extends BaseEntity {
   pin_hash: string; // o PIN nunca é armazenado em texto puro
   ativo: boolean;
 }
+
+/** Funcionário como a interface pode receber: NUNCA inclui o pin_hash. */
+export type FuncionarioPublico = Omit<Funcionario, "pin_hash">;
