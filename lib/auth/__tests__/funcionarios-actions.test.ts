@@ -53,6 +53,19 @@ beforeEach(() => {
 describe("configuração inicial do proprietário", () => {
   const dados = { nome: "Dono", pin: "4321", confirmacaoPin: "4321" };
 
+  // Antes da configuração inicial não há proprietário ativo.
+  beforeEach(() => m.contarProprietariosAtivos.mockResolvedValue(0));
+
+  it("com proprietário já configurado, recusa sem comparar o PIN com os de ninguém (não vira sonda)", async () => {
+    m.contarProprietariosAtivos.mockResolvedValue(1);
+    m.pinEmUsoPorOutro.mockResolvedValue(true);
+    const r = await configurarProprietarioInicialAction(dados);
+    expect(r.sucesso).toBe(false);
+    expect(r.erro).toMatch(/já foi configurado/);
+    expect(m.pinEmUsoPorOutro).not.toHaveBeenCalled();
+    expect(m.criarProprietarioInicial).not.toHaveBeenCalled();
+  });
+
   it("o administrador do login cria o primeiro proprietário", async () => {
     const r = await configurarProprietarioInicialAction(dados);
     expect(r.sucesso).toBe(true);

@@ -37,6 +37,11 @@ export async function configurarProprietarioInicialAction(input: { nome: string;
   }
 
   try {
+    // Fluxo fechado depois da configuração: antes de qualquer comparação de PIN, para que esta action
+    // nunca sirva de sonda ("este PIN existe?") sem passar pelo bloqueio por tentativas.
+    if ((await contarProprietariosAtivos()) > 0) {
+      return { sucesso: false, erro: "O proprietário já foi configurado. Use a edição de funcionários." };
+    }
     // Defesa extra: se já existir PIN de outro funcionário igual, a identificação ficaria ambígua.
     if (await pinEmUsoPorOutro(input.pin)) {
       return { sucesso: false, erro: "Esse PIN já está em uso. Escolha outro." };
