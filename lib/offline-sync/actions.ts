@@ -6,6 +6,9 @@ import { listarCategoriasAlteradasDesde } from "@/services/categorias.service";
 import { listarEstoqueAlteradoDesde } from "@/services/estoque.service";
 import { listarFuncionariosCatalogoDesde, listarCredenciaisPinOffline, type CredencialPinOffline } from "@/services/funcionarios.service";
 import { listarClientesAlteradosDesde } from "@/services/clientes.service";
+import { instanteAtualDoBanco, lerPaginaCatalogo } from "@/services/catalogo-sync.service";
+import type { EntradaPaginaCatalogo, PaginaCatalogo } from "./catalogo-paginas";
+import { validarEntradaPagina } from "./validar-pagina";
 
 export interface AlteracoesCatalogo {
   produtos: Awaited<ReturnType<typeof listarProdutosAlteradosDesde>>;
@@ -16,6 +19,11 @@ export interface AlteracoesCatalogo {
   timestampServidor: string;
 }
 
+/**
+ * @deprecated Lê no máximo 500/1.000 registros por chamada (sem paginação). O aparelho usa
+ * `buscarPaginaCatalogoAction`; esta permanece só para abas antigas que ainda chamam a versão anterior (elas
+ * recarregam ao detectar a nova versão). Não a use em código novo.
+ */
 export async function buscarAlteracoesCatalogoAction(
   desdeIso: string | null
 ): Promise<AlteracoesCatalogo> {
@@ -33,6 +41,20 @@ export async function buscarAlteracoesCatalogoAction(
   ]);
 
   return { produtos, categorias, estoque, funcionarios, clientes, timestampServidor: inicio.toISOString() };
+}
+
+/**
+ * Uma página de UMA entidade do catálogo (ver catalogo-paginas.ts). Somente leitura. Na primeira página da rodada
+ * `ate` vem nulo e o servidor escolhe o instante-limite (relógio do servidor, não do aparelho); as demais páginas
+ * devolvem o mesmo `ate` para a janela não se mover enquanto pagina.
+ */
+export async function buscarPaginaCatalogoAction(entrada: EntradaPaginaCatalogo): Promise<PaginaCatalogo> {
+  const acesso = await verificarAcesso();
+  if (!acesso.ok) throw new Error(acesso.erro);
+  const v = validarEntradaPagina(entrada);
+  const ate = v.ate ?? (await instanteAtualDoBanco());
+  const { itens, proximo } = await lerPaginaCatalogo(v.entidade, { desde: v.desde, ate, apos: v.apos }, v.tamanho);
+  return { ate, itens, proximo } as PaginaCatalogo;
 }
 
 export type ResultadoCredenciaisPinOffline =
