@@ -15,7 +15,12 @@ export type Permissao =
   | "funcionarios.gerenciar"
   | "clientes.gerenciar"
   | "contas_receber.registrar_pagamento"
-  | "relatorios.visualizar";
+  | "relatorios.visualizar"
+  // Caixa: abrir, vender e fechar usam "pdv.vender" (preserva o PIN offline de caixa/frentista).
+  // As permissões abaixo são administrativas e exigem o PIN de proprietário/gerente (online).
+  | "caixa.movimentar" // sangria, suprimento, despesa, ajustes e estornos
+  | "caixa.reabrir" // reabertura excepcional de caixa fechado
+  | "caixa.consultar"; // relatórios e histórico de todos os caixas
 
 const PERMISSOES_POR_CARGO: Record<Cargo, Permissao[]> = {
   proprietario: [
@@ -28,6 +33,9 @@ const PERMISSOES_POR_CARGO: Record<Cargo, Permissao[]> = {
     "clientes.gerenciar",
     "contas_receber.registrar_pagamento",
     "relatorios.visualizar",
+    "caixa.movimentar",
+    "caixa.reabrir",
+    "caixa.consultar",
   ],
   gerente: [
     "pdv.vender",
@@ -39,6 +47,9 @@ const PERMISSOES_POR_CARGO: Record<Cargo, Permissao[]> = {
     "clientes.gerenciar",
     "contas_receber.registrar_pagamento",
     "relatorios.visualizar",
+    "caixa.movimentar",
+    "caixa.reabrir",
+    "caixa.consultar",
   ],
   caixa: ["pdv.vender"],
   estoquista: ["estoque.entrada", "estoque.ajuste"],

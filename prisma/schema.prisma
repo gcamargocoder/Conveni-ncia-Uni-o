@@ -60,6 +60,11 @@ model Funcionario {
   movimentacoes MovimentacaoEstoque[]
   recebimentos  Recebimento[]
 
+  caixas_abertos   Caixa[]          @relation("CaixaAbertoPor")
+  caixas_fechados  Caixa[]          @relation("CaixaFechadoPor")
+  movimentos_caixa MovimentoCaixa[]
+  auditoria_caixa  AuditoriaCaixa[]
+
   @@map("funcionarios")
 }
 
@@ -122,12 +127,13 @@ model Venda {
   updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
   deleted_at      DateTime? @db.Timestamptz(6)
 
-  funcionario    Funcionario           @relation(fields: [funcionario_id], references: [id])
-  cliente        Cliente?              @relation(fields: [cliente_id], references: [id])
-  usuario        Usuario?              @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
-  itens          ItemVenda[]
-  movimentacoes  MovimentacaoEstoque[]
-  contas_receber ContaReceber[]
+  funcionario      Funcionario           @relation(fields: [funcionario_id], references: [id])
+  cliente          Cliente?              @relation(fields: [cliente_id], references: [id])
+  usuario          Usuario?              @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  itens            ItemVenda[]
+  movimentacoes    MovimentacaoEstoque[]
+  contas_receber   ContaReceber[]
+  movimentos_caixa MovimentoCaixa[]
 
   @@index([created_at])
   @@index([usuario_id])
@@ -198,8 +204,9 @@ model Recebimento {
   funcionario_id   String   @db.Uuid
   created_at       DateTime @default(now()) @db.Timestamptz(6)
 
-  conta_receber ContaReceber @relation(fields: [conta_receber_id], references: [id])
-  funcionario   Funcionario  @relation(fields: [funcionario_id], references: [id])
+  conta_receber   ContaReceber    @relation(fields: [conta_receber_id], references: [id])
+  funcionario     Funcionario     @relation(fields: [funcionario_id], references: [id])
+  movimento_caixa MovimentoCaixa?
 
   @@index([conta_receber_id])
   @@map("recebimentos")
@@ -237,6 +244,11 @@ model Usuario {
   vendas             Venda[]
   vendas_revisao     VendaRevisao[]     @relation("RevisaoOrigem")
   revisoes_decididas VendaRevisao[]     @relation("RevisaoDecisao")
+
+  caixas_abertos   Caixa[]          @relation("CaixaAbertoUsuario")
+  caixas_fechados  Caixa[]          @relation("CaixaFechadoUsuario")
+  movimentos_caixa MovimentoCaixa[]
+  auditoria_caixa  AuditoriaCaixa[]
 
   @@map("usuarios")
 }
@@ -319,4 +331,153 @@ model VendaRevisao {
 
   @@index([status])
   @@map("vendas_revisao")
+}
+
+// =========================================================
+// Controle de caixa. Valores SEMPRE em centavos inteiros.
+// O caixa pertence ao TERMINAL (dispositivo), não a um funcionário: vários funcionários
+// movimentam o mesmo caixa e cada movimento guarda o funcionário identificado pelo PIN.
+// Os ids são gerados no aparelho (UUID) para a sincronização offline ser idempotente.
+// =========================================================
+
+model Caixa {
+  id                          String    @id @db.Uuid
+  terminal_id                 String // identificador do dispositivo (UUID local do navegador)
+  terminal_papel              String? // principal | emergencial
+  status                      String    @default("aberto") // aberto | fechado
+  fundo_inicial_centavos      Int
+  observacoes_abertura        String?
+  aberto_em                   DateTime  @db.Timestamptz(6) // relógio do terminal
+  aberto_por_funcionario_id   String    @db.Uuid
+  aberto_por_usuario_id       String?   @db.Uuid
+  origem_abertura             String // online | offline
+  registrado_em               DateTime  @default(now()) @db.Timestamptz(6)
+  fechado_em                  DateTime? @db.Timestamptz(6)
+  fechado_por_funcionario_id  String?   @db.Uuid
+  fechado_por_usuario_id      String?   @db.Uuid
+  origem_fechamento           String?
+  conferencia                 Json? // valores contados/informados por forma (centavos)
+  resumo_terminal             Json? // resumo calculado no aparelho no fechamento (comparação)
+  resumo_fechamento           Json? // resumo oficial, calculado pelo servidor ao fechar
+  diferenca_dinheiro_centavos Int?
+  diferenca_total_centavos    Int?
+  justificativa_divergencia   String?
+  conferencia_status          String? // pendente | conferido (revisão do administrador)
+  conferido_por_usuario_id    String?   @db.Uuid
+  conferido_em                DateTime? @db.Timestamptz(6)
+  conferencia_obs             String?
+  reaberturas                 Int       @default(0)
+
+  aberto_por_funcionario  Funcionario      @relation("CaixaAbertoPor", fields: [aberto_por_funcionario_id], references: [id])
+  fechado_por_funcionario Funcionario?     @relation("CaixaFechadoPor", fields: [fechado_por_funcionario_id], references: [id])
+  aberto_por_usuario      Usuario?         @relation("CaixaAbertoUsuario", fields: [aberto_por_usuario_id], references: [id], onDelete: SetNull)
+  fechado_por_usuario     Usuario?         @relation("CaixaFechadoUsuario", fields: [fechado_por_usuario_id], references: [id], onDelete: SetNull)
+  movimentos              MovimentoCaixa[]
+  auditoria               AuditoriaCaixa[]
+
+  @@index([terminal_id, status])
+  @@index([aberto_em])
+  @@index([status])
+  @@map("caixas")
+}
+
+// Fato financeiro imutável (trigger bloqueia UPDATE/DELETE). Correção = novo registro de estorno.
+model MovimentoCaixa {
+  id                   String   @id @db.Uuid
+  caixa_id             String   @db.Uuid
+  tipo                 String // venda | recebimento_conta | suprimento | outra_entrada | ajuste_entrada | sangria | despesa | outra_saida | ajuste_saida | estorno
+  sentido              String // entrada | saida
+  forma_pagamento      String // dinheiro | pix | credito | debito | fiado
+  valor_centavos       Int
+  funcionario_id       String   @db.Uuid // identificado pelo PIN
+  usuario_id           String?  @db.Uuid // login administrativo autenticado, quando houver
+  dispositivo          String // terminal
+  origem               String // online | offline
+  origem_operacao      String // pdv | conta_receber | caixa
+  venda_id             String?  @db.Uuid
+  recebimento_id       String?  @unique @db.Uuid
+  estorno_de_id        String?  @unique @db.Uuid
+  ordem                Int? // posição do pagamento dentro de uma venda (pagamento dividido)
+  descricao            String?
+  justificativa        String?
+  cartao_bandeira      String?
+  cartao_adquirente    String?
+  cartao_parcelas      Int?
+  cartao_taxa_centavos Int? // taxa CONHECIDA da operadora; nulo = desconhecida (nunca presumida)
+  transacao_id         String?
+  ocorrido_em          DateTime @db.Timestamptz(6) // relógio do terminal
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  caixa       Caixa           @relation(fields: [caixa_id], references: [id])
+  funcionario Funcionario     @relation(fields: [funcionario_id], references: [id])
+  usuario     Usuario?        @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  venda       Venda?          @relation(fields: [venda_id], references: [id], onDelete: Restrict)
+  recebimento Recebimento?    @relation(fields: [recebimento_id], references: [id], onDelete: Restrict)
+  estorno_de  MovimentoCaixa? @relation("EstornoDe", fields: [estorno_de_id], references: [id], onDelete: Restrict)
+  estorno     MovimentoCaixa? @relation("EstornoDe")
+
+  @@unique([venda_id, tipo, ordem])
+  @@index([caixa_id, ocorrido_em])
+  @@index([venda_id])
+  @@index([funcionario_id])
+  @@map("movimentos_caixa")
+}
+
+// Trilha de auditoria do caixa (imutável): abertura, fechamento, reabertura, conferência, conflitos.
+model AuditoriaCaixa {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caixa_id       String   @db.Uuid
+  acao           String
+  funcionario_id String?  @db.Uuid // identificado pelo PIN
+  usuario_id     String?  @db.Uuid // administrativo autenticado
+  dispositivo    String?
+  origem         String? // online | offline
+  detalhes       Json?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  caixa       Caixa        @relation(fields: [caixa_id], references: [id])
+  funcionario Funcionario? @relation(fields: [funcionario_id], references: [id])
+  usuario     Usuario?     @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@index([caixa_id, created_at])
+  @@map("auditoria_caixa")
+}
+
+// Operação de caixa vinda do aparelho que o servidor NÃO aceitou automaticamente (ex.: movimento
+// para caixa já fechado, abertura em terminal que já tem caixa aberto). Nunca é apagada.
+model CaixaConflito {
+  id          String    @id @db.Uuid // id da operação local (idempotência)
+  tipo        String
+  caixa_id    String?
+  dispositivo String?
+  usuario_id  String?   @db.Uuid
+  payload     Json
+  motivo      String
+  status      String    @default("pendente") // pendente | tratado
+  tratado_por String?   @db.Uuid
+  tratado_em  DateTime? @db.Timestamptz(6)
+  observacao  String?
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([status])
+  @@map("caixa_conflitos")
+}
+
+// Autorização por PIN, validada NO SERVIDOR, de uma operação administrativa do caixa (sangria, suprimento,
+// despesa, ajuste, estorno). O id é o da operação. A sincronização só aplica essas operações se houver
+// autorização do mesmo funcionário, permissão, login e escopo (tipo/valor/alvo): o funcionario_id enviado
+// pelo aparelho, sozinho, não autoriza nada.
+model AutorizacaoCaixa {
+  id             String   @id @db.Uuid
+  funcionario_id String   @db.Uuid
+  usuario_id     String?  @db.Uuid
+  permissao      String
+  escopo         String
+  expira_em      DateTime @db.Timestamptz(6)
+  // Preenchido, na MESMA transação que grava a operação, quando a autorização é usada. Uso único.
+  consumida_em   DateTime? @db.Timestamptz(6)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([expira_em])
+  @@map("autorizacoes_caixa")
 }
