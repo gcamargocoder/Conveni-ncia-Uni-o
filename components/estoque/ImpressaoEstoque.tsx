@@ -1,4 +1,5 @@
 import type { EstoqueAtual } from "@/services/estoque.service";
+import { formatarDataHora } from "@/lib/utils/fuso";
 
 interface ImpressaoEstoqueProps {
   itens: EstoqueAtual[];
@@ -15,7 +16,7 @@ function situacao(item: EstoqueAtual): { rotulo: string; destaque: boolean } {
 }
 
 export function ImpressaoEstoque({ itens }: ImpressaoEstoqueProps) {
-  const geradoEm = new Date().toLocaleString("pt-BR");
+  const geradoEm = formatarDataHora(new Date());
   const totalItensEmEstoque = itens.reduce((soma, i) => soma + Math.max(i.quantidade_atual, 0), 0);
 
   return (

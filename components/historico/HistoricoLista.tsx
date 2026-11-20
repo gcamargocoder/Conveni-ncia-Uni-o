@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ImpressaoHistorico } from "./ImpressaoHistorico";
 import type { EventoHistorico } from "@/services/historico.service";
+import { formatarDataHora } from "@/lib/utils/fuso";
 
 interface HistoricoListaProps {
   eventos: EventoHistorico[];
@@ -73,7 +74,7 @@ export function HistoricoLista({ eventos, rotuloPeriodo }: HistoricoListaProps) 
                     <div className="flex justify-between items-start gap-3">
                       <p className="text-slate-800">{e.descricao}</p>
                       <p className="text-slate-400 text-xs whitespace-nowrap shrink-0">
-                        {new Date(e.created_at).toLocaleString("pt-BR")}
+                        {formatarDataHora(e.created_at)}
                       </p>
                     </div>
                     <p className="text-slate-500 text-sm">

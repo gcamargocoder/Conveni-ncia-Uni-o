@@ -5,10 +5,11 @@ import { useConectividade } from "@/hooks/useConectividade";
 import { usePendenciasSincronizacao } from "@/hooks/usePendenciasSincronizacao";
 import { useStatusSincronizacaoCatalogo } from "@/hooks/useStatusSincronizacaoCatalogo";
 import { useUltimaSincronizacaoFila } from "@/hooks/useUltimaSincronizacaoFila";
+import { formatarHora } from "@/lib/utils/fuso";
 
 function formatarHorario(iso: string | null | undefined): string {
   if (!iso) return "nunca";
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return formatarHora(iso);
 }
 
 /**

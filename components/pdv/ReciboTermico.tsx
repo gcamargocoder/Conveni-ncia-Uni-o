@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Eye, X } from "lucide-react";
 import { VendaCompleta } from "@/services/vendas.service";
+import { formatarData, formatarHora } from "@/lib/utils/fuso";
 
 const ROTULOS_PAGAMENTO: Record<string, string> = {
   dinheiro: "Dinheiro",
@@ -25,8 +26,8 @@ interface ConteudoCupomProps {
 
 function ConteudoCupom({ venda }: ConteudoCupomProps) {
   const data = new Date(venda.created_at);
-  const dataFormatada = data.toLocaleDateString("pt-BR");
-  const horaFormatada = data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const dataFormatada = formatarData(data);
+  const horaFormatada = formatarHora(data);
   const numeroVenda = venda.id.slice(0, 8).toUpperCase();
 
   const subtotal = venda.itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0);

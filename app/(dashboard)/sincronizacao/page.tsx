@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useDashboardSincronizacao } from "@/hooks/useDashboardSincronizacao";
 import type { StatusFila } from "@/services/offline/db";
+import { formatarDataHoraCurta } from "@/lib/utils/fuso";
 
 function formatarHorario(iso: string | null | undefined): string {
   if (!iso) return "nunca";
-  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return formatarDataHoraCurta(iso);
 }
 
 function formatarDuracao(segundos: number): string {

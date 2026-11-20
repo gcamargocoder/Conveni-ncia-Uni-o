@@ -27,6 +27,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { StatusOperacional } from "@/components/dashboard/StatusOperacional";
 import { exigirSessao } from "@/lib/auth/servidor";
+import { formatarHora, hojeLocal, inicioDoDiaLocal, somarDias } from "@/lib/utils/fuso";
 
 const ATALHOS = [
   { href: "/pdv", titulo: "Nova venda", icone: ShoppingCart, cor: "text-teal-500" },
@@ -43,9 +44,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   await exigirSessao();
-  const seteDiasAtras = new Date();
-  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-  seteDiasAtras.setHours(0, 0, 0, 0);
+  const seteDiasAtras = inicioDoDiaLocal(somarDias(hojeLocal(), -7));
 
   const [resumo, historico, contasPendentes] = await Promise.all([
     buscarResumoDashboard(),
@@ -232,7 +231,7 @@ export default async function DashboardPage() {
                   <li key={`${e.tipo}-${e.id}`} className="text-sm">
                     <p className="text-slate-700 leading-snug">{e.descricao}</p>
                     <p className="text-slate-400 text-xs mt-0.5">
-                      {e.funcionario_nome} · {new Date(e.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      {e.funcionario_nome} · {formatarHora(e.created_at)}
                     </p>
                   </li>
                 ))}

@@ -7,10 +7,11 @@ import { useStatusSincronizacaoCatalogo } from "@/hooks/useStatusSincronizacaoCa
 import { useUltimaSincronizacaoFila } from "@/hooks/useUltimaSincronizacaoFila";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { formatarHora } from "@/lib/utils/fuso";
 
 function formatarHorario(iso: string | null | undefined): string {
   if (!iso) return "nunca";
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return formatarHora(iso);
 }
 
 /**

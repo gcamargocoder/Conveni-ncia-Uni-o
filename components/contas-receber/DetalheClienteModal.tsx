@@ -8,6 +8,7 @@ import { DetalheContaModal } from "./DetalheContaModal";
 import { buscarDetalheClienteAction } from "@/lib/contas-receber/actions";
 import { classificarUrgencia } from "@/lib/contas-receber/urgencia";
 import type { DetalheCliente } from "@/services/contas-receber.service";
+import { formatarDataHora, formatarData } from "@/lib/utils/fuso";
 
 interface DetalheClienteModalProps {
   clienteId: string | null;
@@ -79,7 +80,7 @@ export function DetalheClienteModal({ clienteId, onFechar }: DetalheClienteModal
                         >
                           <div>
                             <p className="text-sm font-medium text-slate-800">
-                              {new Date(c.venda_created_at).toLocaleDateString("pt-BR")}
+                              {formatarData(c.venda_created_at)}
                             </p>
                             <p className="text-xs text-slate-500">Saldo: R$ {c.saldo_atual.toFixed(2)}</p>
                           </div>
@@ -104,7 +105,7 @@ export function DetalheClienteModal({ clienteId, onFechar }: DetalheClienteModal
                 <ul className="flex flex-col divide-y divide-slate-50">
                   {detalhe.comprasQuitadas.map((c) => (
                     <li key={c.id} className="py-2 flex justify-between text-sm">
-                      <span className="text-slate-700">{new Date(c.venda_created_at).toLocaleDateString("pt-BR")}</span>
+                      <span className="text-slate-700">{formatarData(c.venda_created_at)}</span>
                       <span className="text-slate-500">R$ {c.valor_original.toFixed(2)}</span>
                     </li>
                   ))}
@@ -128,7 +129,7 @@ export function DetalheClienteModal({ clienteId, onFechar }: DetalheClienteModal
                         <p className="text-slate-800 font-medium">R$ {p.valor.toFixed(2)}</p>
                         <p className="text-slate-500 text-xs capitalize">{p.forma_pagamento}</p>
                       </div>
-                      <p className="text-slate-400 text-xs">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
+                      <p className="text-slate-400 text-xs">{formatarData(p.created_at)}</p>
                     </li>
                   ))}
                 </ul>
@@ -158,7 +159,7 @@ export function DetalheClienteModal({ clienteId, onFechar }: DetalheClienteModal
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-slate-800">{evento.descricao}</p>
-                        <p className="text-slate-400 text-xs">{new Date(evento.data).toLocaleString("pt-BR")}</p>
+                        <p className="text-slate-400 text-xs">{formatarDataHora(evento.data)}</p>
                       </div>
                     </li>
                   ))}

@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import type { VendaRelatorio, ResumoPorFormaPagamento } from "@/services/relatorios.service";
 import type { EstoqueAtual } from "@/services/estoque.service";
 import type { ContaReceberPendente } from "@/services/contas-receber.service";
+import { formatarDataHora } from "@/lib/utils/fuso";
 
 interface ImpressaoRelatoriosProps {
   rotuloPeriodo: string;
@@ -43,7 +44,7 @@ export function ImpressaoRelatorios({
 }: ImpressaoRelatoriosProps) {
   const [escolhendo, setEscolhendo] = useState(false);
   const [selecao, setSelecao] = useState<SelecaoImpressao>(PADRAO);
-  const geradoEm = new Date().toLocaleString("pt-BR");
+  const geradoEm = formatarDataHora(new Date());
   const totalFiadoPendente = contasFiadoPendentes.reduce((s, c) => s + c.saldo_atual, 0);
 
   function alternar(chave: keyof SelecaoImpressao) {
@@ -153,7 +154,7 @@ export function ImpressaoRelatorios({
               <tbody>
                 {vendas.map((v) => (
                   <tr key={v.id} className="border-b border-slate-200">
-                    <td className="py-1.5 pr-2 whitespace-nowrap">{new Date(v.created_at).toLocaleString("pt-BR")}</td>
+                    <td className="py-1.5 pr-2 whitespace-nowrap">{formatarDataHora(v.created_at)}</td>
                     <td className="py-1.5 pr-2">R$ {v.total.toFixed(2)}</td>
                     <td className="py-1.5 capitalize">
                       {v.forma_pagamento}

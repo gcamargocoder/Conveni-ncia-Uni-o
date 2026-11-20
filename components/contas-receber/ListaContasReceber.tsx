@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
 import { DetalheContaModal } from "./DetalheContaModal";
 import type { ContaReceberComCliente } from "@/types/conta-receber";
+import { formatarData } from "@/lib/utils/fuso";
 
 const FILTROS = [
   { valor: "", rotulo: "Todas" },
@@ -85,7 +86,7 @@ export function ListaContasReceber({ contas, statusAtual }: ListaContasReceberPr
           {
             chave: "venda_created_at",
             cabecalho: "Data da compra",
-            render: (c) => new Date(c.venda_created_at).toLocaleDateString("pt-BR"),
+            render: (c) => formatarData(c.venda_created_at),
           },
           {
             chave: "acoes",

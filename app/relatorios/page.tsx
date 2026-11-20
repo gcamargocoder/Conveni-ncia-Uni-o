@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
 import { ImpressaoRelatorios } from "@/components/relatorios/ImpressaoRelatorios";
 import { exigirSessao } from "@/lib/auth/servidor";
+import { formatarDataHora } from "@/lib/utils/fuso";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,7 @@ export default async function RelatoriosPage({
         </div>
         <Table
           colunas={[
-            { chave: "created_at", cabecalho: "Data", render: (v) => new Date(v.created_at).toLocaleString("pt-BR") },
+            { chave: "created_at", cabecalho: "Data", render: (v) => formatarDataHora(v.created_at) },
             { chave: "total", cabecalho: "Total", render: (v) => `R$ ${v.total.toFixed(2)}` },
             {
               chave: "forma_pagamento",

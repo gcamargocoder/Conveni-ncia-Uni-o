@@ -1,4 +1,5 @@
 import type { EventoHistorico } from "@/services/historico.service";
+import { formatarDataHora, formatarData, formatarHora } from "@/lib/utils/fuso";
 
 interface ImpressaoHistoricoProps {
   eventos: EventoHistorico[];
@@ -7,7 +8,7 @@ interface ImpressaoHistoricoProps {
 }
 
 export function ImpressaoHistorico({ eventos, rotuloPeriodo, termoBusca }: ImpressaoHistoricoProps) {
-  const geradoEm = new Date().toLocaleString("pt-BR");
+  const geradoEm = formatarDataHora(new Date());
 
   return (
     <div className="print-only">
@@ -57,9 +58,9 @@ export function ImpressaoHistorico({ eventos, rotuloPeriodo, termoBusca }: Impre
             const data = new Date(e.created_at);
             return (
               <tr key={`${e.tipo}-${e.id}`} className="border-b border-slate-200">
-                <td className="py-1.5 pr-2 whitespace-nowrap">{data.toLocaleDateString("pt-BR")}</td>
+                <td className="py-1.5 pr-2 whitespace-nowrap">{formatarData(data)}</td>
                 <td className="py-1.5 pr-2 whitespace-nowrap">
-                  {data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  {formatarHora(data)}
                 </td>
                 <td className="py-1.5 pr-2">{e.produto_nome}</td>
                 <td className="py-1.5 pr-2">{e.funcionario_nome}</td>

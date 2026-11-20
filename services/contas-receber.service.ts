@@ -4,6 +4,7 @@ import { executar } from "./prisma/query-helpers";
 import { buscarCliente } from "./clientes.service";
 import { ContaReceber, ContaReceberComCliente, Recebimento, StatusConta } from "@/types/conta-receber";
 import { Cliente } from "@/types/cliente";
+import { hojeLocal, inicioDoDiaLocal, inicioDoMesLocal } from "@/lib/utils/fuso";
 
 const LIMITE_LISTAGEM = 500;
 
@@ -298,11 +299,8 @@ export async function buscarResumoFinanceiro(
     (c) => c.dias_em_aberto >= 16 && c.dias_em_aberto <= 30
   ).length;
 
-  const inicioDoMes = new Date();
-  inicioDoMes.setDate(1);
-  inicioDoMes.setHours(0, 0, 0, 0);
-  const inicioDoDia = new Date();
-  inicioDoDia.setHours(0, 0, 0, 0);
+  const inicioDoMes = inicioDoMesLocal();
+  const inicioDoDia = inicioDoDiaLocal(hojeLocal());
 
   const pagamentosDoMes = await executar<{ valor: number; created_at: string }[]>(
     () =>

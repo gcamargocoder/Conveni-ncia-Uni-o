@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
+import { formatarDataHora } from "@/lib/utils/fuso";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export const metadata = { title: "Usuários — Conveniência União" };
 
 function formatarData(iso: string | null): string {
   if (!iso) return "Nunca";
-  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  return formatarDataHora(iso);
 }
 
 export default async function UsuariosPage() {

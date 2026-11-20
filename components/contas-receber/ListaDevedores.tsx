@@ -9,6 +9,7 @@ import { DetalheClienteModal } from "./DetalheClienteModal";
 import { classificarUrgencia, type NivelUrgencia } from "@/lib/contas-receber/urgencia";
 import type { Devedor } from "@/services/contas-receber.service";
 import type { StatusConta } from "@/types/conta-receber";
+import { formatarDataHora, formatarData } from "@/lib/utils/fuso";
 
 interface ListaDevedoresProps {
   devedores: Devedor[];
@@ -155,12 +156,12 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
             {
               chave: "primeira_compra_em_aberto",
               cabecalho: "1ª compra",
-              render: (d) => new Date(d.primeira_compra_em_aberto).toLocaleDateString("pt-BR"),
+              render: (d) => formatarData(d.primeira_compra_em_aberto),
             },
             {
               chave: "ultima_compra",
               cabecalho: "Última compra",
-              render: (d) => new Date(d.ultima_compra).toLocaleDateString("pt-BR"),
+              render: (d) => formatarData(d.ultima_compra),
             },
             {
               chave: "saldo_atual",
@@ -219,7 +220,7 @@ export function ListaDevedores({ devedores }: ListaDevedoresProps) {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm mb-4">
           <div className="flex gap-2">
             <dt className="font-medium text-slate-600">Gerado em:</dt>
-            <dd className="text-slate-900">{new Date().toLocaleString("pt-BR")}</dd>
+            <dd className="text-slate-900">{formatarDataHora(new Date())}</dd>
           </div>
           <div className="flex gap-2">
             <dt className="font-medium text-slate-600">Clientes listados:</dt>

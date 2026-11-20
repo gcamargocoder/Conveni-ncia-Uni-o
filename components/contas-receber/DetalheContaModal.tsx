@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { RegistrarPagamentoModal } from "./RegistrarPagamentoModal";
 import { buscarContaAction } from "@/lib/contas-receber/actions";
 import type { DetalheContaReceber } from "@/services/contas-receber.service";
+import { formatarDataHora, formatarData } from "@/lib/utils/fuso";
 
 interface DetalheContaModalProps {
   contaId: string | null;
@@ -60,7 +61,7 @@ export function DetalheContaModal({ contaId, onFechar }: DetalheContaModalProps)
             <section className="flex flex-col gap-1">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Venda</h3>
               <p className="text-sm text-slate-700">
-                {new Date(detalhe.conta.venda_created_at).toLocaleString("pt-BR")}
+                {formatarDataHora(detalhe.conta.venda_created_at)}
               </p>
             </section>
 
@@ -92,7 +93,7 @@ export function DetalheContaModal({ contaId, onFechar }: DetalheContaModalProps)
                         <p className="text-slate-500 text-xs capitalize">{p.forma_pagamento}</p>
                         {p.observacoes && <p className="text-slate-500 text-xs">{p.observacoes}</p>}
                       </div>
-                      <p className="text-slate-400 text-xs">{new Date(p.created_at).toLocaleDateString("pt-BR")}</p>
+                      <p className="text-slate-400 text-xs">{formatarData(p.created_at)}</p>
                     </li>
                   ))}
                 </ul>

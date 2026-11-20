@@ -2,6 +2,7 @@ import { listarHistorico } from "@/services/historico.service";
 import { FiltroPeriodoHistorico } from "@/components/historico/FiltroPeriodoHistorico";
 import { HistoricoLista } from "@/components/historico/HistoricoLista";
 import { exigirSessao } from "@/lib/auth/servidor";
+import { ehDiaValido, fimExclusivoDoDiaLocal, formatarData, hojeLocal, inicioDoDiaLocal, somarDias } from "@/lib/utils/fuso";
 
 export const dynamic = "force-dynamic";
 
@@ -19,15 +20,14 @@ export default async function HistoricoPage({
   let inicio: Date;
   let fim: Date;
 
-  if (periodo === "personalizado" && de && ate) {
-    inicio = new Date(`${de}T00:00:00`);
-    fim = new Date(`${ate}T23:59:59`);
+  // Dias e limites são do calendário da LOJA (America/Sao_Paulo), não do servidor (UTC).
+  if (periodo === "personalizado" && ehDiaValido(de) && ehDiaValido(ate)) {
+    inicio = inicioDoDiaLocal(de);
+    fim = new Date(fimExclusivoDoDiaLocal(ate).getTime() - 1);
   } else {
     const dias = DIAS_POR_PRESET[periodo] ?? 7;
     fim = new Date();
-    inicio = new Date();
-    inicio.setDate(inicio.getDate() - dias);
-    inicio.setHours(0, 0, 0, 0);
+    inicio = inicioDoDiaLocal(somarDias(hojeLocal(), -dias));
   }
 
   const eventos = await listarHistorico(inicio, fim);
@@ -53,8 +53,8 @@ function calcularRotuloPeriodo(periodo: string, de?: string, ate?: string): stri
   if (periodo === "hoje") return "Hoje";
   if (periodo === "7dias") return "Últimos 7 dias";
   if (periodo === "30dias") return "Últimos 30 dias";
-  if (periodo === "personalizado" && de && ate) {
-    const formatar = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR");
+  if (periodo === "personalizado" && ehDiaValido(de) && ehDiaValido(ate)) {
+    const formatar = (dia: string) => formatarData(inicioDoDiaLocal(dia));
     return `${formatar(de)} até ${formatar(ate)}`;
   }
   return "Últimos 7 dias";

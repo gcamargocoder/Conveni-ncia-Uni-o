@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/ToastProvider";
+import { formatarDataHora } from "@/lib/utils/fuso";
 
 function moeda(valor: number | null): string {
   return valor === null ? "—" : valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -51,7 +52,7 @@ export function VendaRevisaoCartao({ venda }: { venda: VendaEmRevisao }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-slate-900">
-            {new Date(venda.criada_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} ·{" "}
+            {formatarDataHora(venda.criada_em)} ·{" "}
             {venda.forma_pagamento}
           </p>
           <p className="text-xs text-slate-500">
