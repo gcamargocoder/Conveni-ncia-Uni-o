@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Tags } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CampoBusca } from "@/components/ui/CampoBusca";
 import { Table } from "@/components/ui/Table";
 import { ProdutoEditarModal } from "./ProdutoEditarModal";
-import { correspondeBusca } from "@/lib/utils/busca";
+import { normalizarBusca } from "@/lib/utils/busca";
 import type { Produto } from "@/types/produto";
 
 /** Linhas desenhadas por vez: a pesquisa varre TODOS os produtos carregados, mas o DOM só recebe uma fatia (3.000 linhas duplicadas, tabela + cartões, pesavam ~9 MB). */
@@ -28,7 +28,13 @@ export function ListaProdutos({ produtos, categorias, fornecedores, total }: Lis
   const [linhas, setLinhas] = useState(LINHAS_POR_VEZ);
   const buscando = busca.trim() !== "";
   const naoCarregados = Math.max(total - produtos.length, 0);
-  const filtrado = buscando ? produtos.filter((p) => correspondeBusca(p.nome, busca)) : produtos;
+  // Nomes normalizados uma vez por lista (não a cada tecla): com 3.000 produtos a digitação continua instantânea.
+  const indice = useMemo(() => produtos.map((p) => normalizarBusca(p.nome)), [produtos]);
+  const termo = normalizarBusca(busca);
+  const filtrado = useMemo(
+    () => (termo ? produtos.filter((_, i) => indice[i].includes(termo)) : produtos),
+    [produtos, indice, termo]
+  );
 
   const exibidos = filtrado.slice(0, linhas);
   const restantes = filtrado.length - exibidos.length;
