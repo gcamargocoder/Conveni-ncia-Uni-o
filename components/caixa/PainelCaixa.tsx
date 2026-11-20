@@ -274,7 +274,7 @@ function TabelaMovimentos({
             // Regra existente: venda com QUALQUER parte em fiado não é estornada pelo caixa (trata-se na conta a receber).
             const vendaComFiado = m.tipo === "venda" && m.ordem === 0 && vendasComFiado.has(m.venda_id ?? "");
             const podeEstornar =
-              onEstornar && m.tipo !== "estorno" && m.forma_pagamento !== "fiado" && !jaEstornado && !vendaComFiado && (m.tipo !== "venda" || m.ordem === 0);
+              onEstornar && m.tipo !== "estorno" && m.tipo !== "recebimento_conta" && m.forma_pagamento !== "fiado" && !jaEstornado && !vendaComFiado && (m.tipo !== "venda" || m.ordem === 0);
             const rotuloAcao =
               m.tipo === "venda"
                 ? `Cancelar venda de ${formatarCentavos(m.valor_centavos)} em ${ROTULO_FORMA[m.forma_pagamento]}`

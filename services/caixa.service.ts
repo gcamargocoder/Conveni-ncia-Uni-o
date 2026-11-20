@@ -6,6 +6,7 @@ import type { Cargo } from "@/types/funcionario";
 import { calcularDiferencas, haDivergencia, resumirCaixa } from "@/lib/caixa/calculo";
 import {
   SENTIDO_DO_TIPO,
+  tipoAvulsoValido,
   type ConferenciaInformada,
   type DadosCartao,
   type FormaCaixa,
@@ -427,6 +428,30 @@ export interface EntradaEstorno {
   ocorrido_em: string;
 }
 
+/**
+ * O estorno por `movimento_id` (avulso) só vale para lançamentos que nascem no próprio caixa (suprimento, sangria,
+ * despesa, ajustes). Lançamentos de VENDA têm de passar pelo cancelamento da venda (`venda_id`: estorna todas as formas,
+ * marca a venda como cancelada, recusa parte fiado) e os de RECEBIMENTO de conta a receber pelo tratamento da própria
+ * conta: o estorno avulso deles deixaria o caixa em desacordo com a venda, a conta a receber e o estoque.
+ * Vale no servidor, independentemente do que a tela mostra ou do que o aparelho enviou.
+ */
+async function recusarEstornoAvulsoFinanceiro(tx: Cliente, movimentoId: string): Promise<void> {
+  const mov = await tx.movimentoCaixa.findUnique({
+    where: { id: movimentoId },
+    select: { tipo: true, venda_id: true, recebimento_id: true },
+  });
+  if (!mov) return; // "não encontrado" é tratado adiante, com a mesma mensagem de sempre
+  if (mov.tipo === "venda" || mov.venda_id) {
+    throw new CaixaError("nao_estornavel", "Lançamento de venda não pode ser estornado avulso: cancele a venda pelo fluxo de cancelamento.");
+  }
+  if (mov.tipo === "recebimento_conta" || mov.recebimento_id) {
+    throw new CaixaError("nao_estornavel", "Recebimento de conta a receber não pode ser estornado avulso: trate-o na própria conta a receber.");
+  }
+  if (mov.tipo !== "estorno" && !tipoAvulsoValido(mov.tipo)) {
+    throw new CaixaError("nao_estornavel", "Este tipo de lançamento não pode ser estornado avulso.");
+  }
+}
+
 export async function estornar(entrada: EntradaEstorno, autoria: Autoria): Promise<ResultadoOperacao> {
   if (!uuidOk(entrada.id) || !uuidOk(entrada.caixa_id) || !textoLimpo(entrada.justificativa, MAX_TEXTO.justificativa)) {
     return { status: "rejeitado", erro: "Informe o motivo do estorno." };
@@ -453,6 +478,9 @@ export async function estornar(entrada: EntradaEstorno, autoria: Autoria): Promi
         where: { caixa_id: entrada.caixa_id, acao: "estorno", detalhes: { path: ["operacao_id"], equals: entrada.id } },
       });
       if (repetida > 0) throw new JaAplicada();
+      // Recusa ANTES de consumir a autorização (e, de todo modo, a transação inteira é desfeita ao lançar): um estorno
+      // avulso de lançamento de venda ou de recebimento de conta deixaria venda, estoque e recebível dessincronizados do caixa.
+      if (!ehVenda) await recusarEstornoAvulsoFinanceiro(tx, entrada.movimento_id!);
       await consumirAutorizacao(
         tx,
         { kind: "estorno", operacao_id: entrada.id, caixa_id: entrada.caixa_id, venda_id: entrada.venda_id, movimento_id: entrada.movimento_id },

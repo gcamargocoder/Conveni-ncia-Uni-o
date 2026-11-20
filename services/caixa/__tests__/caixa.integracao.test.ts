@@ -847,6 +847,73 @@ describe("cancelamento e estorno", () => {
     expect(await prisma.movimentacaoEstoque.count({ where: { venda_id: vendaId, tipo: "entrada" } })).toBe(0);
   });
 
+  const ultimaAutorizacao = () => prisma.autorizacaoCaixa.findFirstOrThrow({ orderBy: { created_at: "desc" } });
+
+  it("SEC-01: estorno AVULSO (movimento_id) de lançamento de VENDA é recusado no servidor; venda, estoque e autorização intactos", async () => {
+    const { caixa, vendaId } = await comVenda();
+    const lancamento = (await movimentos(caixa)).find((m) => m.tipo === "venda")!;
+    const estoqueAntes = await prisma.movimentacaoEstoque.count({ where: { venda_id: vendaId } });
+    const movsAntes = (await movimentos(caixa)).length;
+
+    const r = await estorno(caixa, ids.gerente, { movimento_id: lancamento.id });
+    expect(r).toMatchObject({ sucesso: false, conflito: true });
+    expect(r.motivo).toMatch(/venda/i);
+
+    expect((await prisma.venda.findUniqueOrThrow({ where: { id: vendaId } })).cancelada).toBe(false);
+    expect(await movimentos(caixa)).toHaveLength(movsAntes);
+    expect((await movimentos(caixa)).filter((m) => m.tipo === "estorno")).toHaveLength(0);
+    expect(await prisma.movimentacaoEstoque.count({ where: { venda_id: vendaId } })).toBe(estoqueAntes);
+    expect(await prisma.movimentacaoEstoque.count({ where: { venda_id: vendaId, tipo: "entrada" } })).toBe(0);
+    expect((await ultimaAutorizacao()).consumida_em).toBeNull(); // recusa NÃO consome a autorização
+    expect(await prisma.auditoriaCaixa.count({ where: { caixa_id: caixa, acao: "estorno" } })).toBe(0);
+    // a recusa fica preservada como conflito para o administrador (a operação não é descartada)
+    expect(await prisma.caixaConflito.count({ where: { tipo: "estorno", caixa_id: caixa } })).toBe(1);
+    // e o fluxo PRÓPRIO de cancelamento da venda continua funcionando
+    expect((await estorno(caixa, ids.gerente, { venda_id: vendaId })).sucesso).toBe(true);
+  });
+
+  it("SEC-01: estorno AVULSO de RECEBIMENTO de conta a receber é recusado; conta, saldo, caixa e autorização intactos", async () => {
+    const caixa = (await (async () => { await entrarComo("op@loja.com"); return abrir({ fundo: 10000 }); })()).id;
+    const fiado = randomUUID();
+    await sincronizarVendaAction(fiado, payload(caixa, { forma_pagamento: "fiado", cliente_id: ids.cliente }));
+    const conta = await prisma.contaReceber.findFirstOrThrow({ where: { venda_id: fiado } });
+    await registrarPagamento({ contaReceberId: conta.id, valor: 6, formaPagamento: "dinheiro", funcionarioId: ids.gerente, usuarioId: ids.operador, terminalId: TERMINAL });
+    const recebimento = await prisma.movimentoCaixa.findFirstOrThrow({ where: { caixa_id: caixa, tipo: "recebimento_conta" } });
+    const contaAntes = await prisma.contaReceber.findUniqueOrThrow({ where: { id: conta.id } });
+    const recebimentosAntes = await prisma.recebimento.count();
+    const saldoAntes = (await resumoDoCaixa(caixa))!.dinheiro.saldo_esperado_centavos;
+
+    const r = await estorno(caixa, ids.gerente, { movimento_id: recebimento.id });
+    expect(r).toMatchObject({ sucesso: false, conflito: true });
+    expect(r.motivo).toMatch(/recebimento|conta a receber/i);
+
+    const contaDepois = await prisma.contaReceber.findUniqueOrThrow({ where: { id: conta.id } });
+    expect(Number(contaDepois.saldo_atual)).toBe(Number(contaAntes.saldo_atual));
+    expect(contaDepois.status).toBe(contaAntes.status);
+    expect(await prisma.recebimento.count()).toBe(recebimentosAntes);
+    expect((await movimentos(caixa)).filter((m) => m.tipo === "estorno")).toHaveLength(0);
+    expect((await resumoDoCaixa(caixa))!.dinheiro.saldo_esperado_centavos).toBe(saldoAntes);
+    expect((await prisma.venda.findUniqueOrThrow({ where: { id: fiado } })).cancelada).toBe(false);
+    expect((await ultimaAutorizacao()).consumida_em).toBeNull();
+  });
+
+  it("SEC-01: estorno ADMINISTRATIVO de movimento avulso (sangria/suprimento) segue permitido e não toca em venda, estoque nem recebíveis", async () => {
+    const { caixa, vendaId } = await comVenda();
+    const sangria = await suprimir(caixa, "sangria", 2500);
+    const estoqueAntes = await prisma.movimentacaoEstoque.count();
+    const contasAntes = await prisma.contaReceber.count();
+
+    const r = await estorno(caixa, ids.gerente, { movimento_id: sangria.id });
+    expect(r).toMatchObject({ sucesso: true, jaExistia: false });
+    expect((await ultimaAutorizacao()).consumida_em).not.toBeNull(); // aqui a autorização É consumida
+    expect((await movimentos(caixa)).filter((m) => m.tipo === "estorno")).toHaveLength(1);
+    expect((await prisma.venda.findUniqueOrThrow({ where: { id: vendaId } })).cancelada).toBe(false);
+    expect(await prisma.movimentacaoEstoque.count()).toBe(estoqueAntes);
+    expect(await prisma.contaReceber.count()).toBe(contasAntes);
+    // reenvio da mesma operação: idempotente, sem novo lançamento
+    expect(await prisma.auditoriaCaixa.count({ where: { caixa_id: caixa, acao: "estorno" } })).toBe(1);
+  });
+
   it("estorno de lançamento de OUTRO caixa (turno anterior, já fechado) é recusado com motivo claro; nada muda", async () => {
     const { caixa, vendaId } = await comVenda();
     await fechar(caixa, { dinheiro_centavos: 11200, pix_centavos: 800 });

@@ -456,6 +456,10 @@ export async function estornarLocal(dados: DadosEstorno): Promise<MovimentoCaixa
     throw new CaixaLocalError("nao_estornavel", "Lançamento não encontrado neste caixa (estornos de caixas anteriores são feitos pelo administrador).");
   }
   if (originais.some((m) => m.tipo === "estorno")) throw new CaixaLocalError("nao_estornavel", "Um estorno não pode ser estornado.");
+  // Mesma regra do servidor: venda só pelo cancelamento da venda; recebimento de conta pela própria conta.
+  if (dados.movimentoId && originais.some((m) => m.tipo === "venda" || m.tipo === "recebimento_conta" || m.venda_id)) {
+    throw new CaixaLocalError("nao_estornavel", "Venda e recebimento de conta não são estornados avulsos: cancele a venda ou trate a conta a receber.");
+  }
   if (originais.some((m) => m.forma_pagamento === "fiado")) {
     throw new CaixaLocalError("nao_estornavel", "Vendas com parte em fiado não podem ser estornadas pelo caixa.");
   }
