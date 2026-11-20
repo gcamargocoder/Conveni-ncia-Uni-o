@@ -7,7 +7,7 @@ import { gerarUuid } from "@/lib/utils/uuid";
 import { totalEmCentavos } from "@/lib/vendas/validacao-sincronizacao";
 import { CaixaError, lancarVendaNoCaixa, type Autoria } from "./caixa.service";
 import type { PagamentoVenda } from "@/lib/caixa/validacao";
-import { instanteNaoFuturo } from "@/lib/utils/fuso";
+import { horarioDaVenda, ocorridoEmParaGravar } from "@/lib/vendas/horario";
 
 export interface DadosVenda {
   id?: string;
@@ -22,7 +22,7 @@ export interface DadosVenda {
   caixa_id?: string | null;
   /** Cada forma de pagamento da venda (pagamento dividido). Ausente = uma forma com o total. */
   pagamentos?: PagamentoVenda[];
-  /** Relógio do terminal quando a venda aconteceu. */
+  /** Relógio do terminal quando a venda aconteceu (gravado em `ocorrido_em`; `created_at` é sempre o horário do servidor). */
   ocorrido_em?: string | null;
   origem?: "online" | "offline";
 }
@@ -75,9 +75,10 @@ export async function gravarVendaNaTransacao(tx: ClienteTransacao, dados: DadosV
       forma_pagamento: formaVenda,
       total,
       dispositivo,
-      // O instante em que a venda ACONTECEU (relógio do terminal), não o de quando a sincronização chegou:
-      // assim venda, cupom, relatório e caixa mostram o mesmo horário. Sem ocorrido_em válido, vale o "agora".
-      created_at: instanteNaoFuturo(dados.ocorrido_em),
+      // created_at fica com o padrão do banco: o horário em que o SERVIDOR gravou. O relógio do dispositivo nunca o substitui;
+      // ele vai para ocorrido_em (só se for uma data válida e dentro da tolerância; a janela de 48 h e a abertura do caixa
+      // são conferidas antes, em processarVendaRecebida, que retém a venda para revisão quando não passam).
+      ocorrido_em: ocorridoEmParaGravar(dados.ocorrido_em),
     },
   });
 
@@ -160,7 +161,10 @@ export interface ItemVendaDetalhado {
 
 export interface VendaCompleta {
   id: string;
+  /** Horário em que a venda ACONTECEU (ocorrido_em, ou created_at nas vendas antigas): é o do recibo. */
   created_at: string;
+  /** Horário em que o servidor gravou a venda (created_at). */
+  recebido_em?: string;
   total: number;
   forma_pagamento: string;
   cancelada: boolean;
@@ -185,6 +189,7 @@ export async function buscarVendaCompleta(vendaId: string): Promise<VendaComplet
           select: {
             id: true,
             created_at: true,
+            ocorrido_em: true,
             total: true,
             forma_pagamento: true,
             cancelada: true,
@@ -201,10 +206,13 @@ export async function buscarVendaCompleta(vendaId: string): Promise<VendaComplet
 
   if (!venda) return null;
 
-  const { funcionario, cliente, itens, ...dadosVenda } = venda;
+  const { funcionario, cliente, itens, ocorrido_em, ...dadosVenda } = venda;
 
   return {
     ...dadosVenda,
+    // O recibo mostra QUANDO A VENDA ACONTECEU (ocorrido_em; venda antiga: created_at) e guarda à parte quando o servidor a recebeu.
+    created_at: horarioDaVenda({ created_at: dadosVenda.created_at, ocorrido_em }).toISOString(),
+    recebido_em: new Date(dadosVenda.created_at).toISOString(),
     funcionario_nome: funcionario?.nome ?? "—",
     cliente_nome: cliente?.nome ?? null,
     cliente_telefone: cliente?.telefone ?? null,

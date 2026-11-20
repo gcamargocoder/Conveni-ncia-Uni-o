@@ -2,6 +2,7 @@ import { possuiPermissao } from "@/lib/auth/permissoes";
 import type { Cargo } from "@/types/funcionario";
 import type { FormaPagamento } from "@/types/venda";
 import { validarPagamentosVenda, uuidOk, type PagamentoVenda } from "@/lib/caixa/validacao";
+import { avaliarHorarioDaVenda } from "@/lib/vendas/horario";
 
 /**
  * Regras do servidor para uma venda que chega da fila offline (ou do PDV online).
@@ -170,6 +171,8 @@ export interface ReferenciaProduto {
 export interface ReferenciaCaixa {
   status: "aberto" | "fechado";
   terminal_id: string;
+  /** Abertura do caixa (relógio do terminal): uma venda não pode ser anterior a ela. */
+  aberto_em?: Date;
 }
 
 export interface ReferenciaVenda {
@@ -179,6 +182,8 @@ export interface ReferenciaVenda {
   /** undefined quando a venda não informa cliente. */
   cliente?: { ativo: boolean; deleted: boolean } | null;
   produtos: Map<string, ReferenciaProduto>;
+  /** Instante em que o SERVIDOR recebeu a venda (padrão: agora). Base da janela de sincronização de 48 h. */
+  agora?: Date;
 }
 
 /** Soma em centavos, como o servidor cobraria (assume estrutura já validada). */
@@ -221,6 +226,12 @@ export function avaliarVendaContraReferencia(venda: VendaRecebida, ref: Referenc
     if (typeof venda.dispositivo === "string" && ref.caixa.terminal_id !== venda.dispositivo) {
       motivos.push(divergencia("caixa_outro_terminal", "A venda diz pertencer a um caixa de outro terminal."));
     }
+  }
+
+  // Horário informado pelo aparelho: janela de 48 h, não anterior à abertura do caixa, no máximo 5 min no futuro.
+  // Fora disso a venda fica retida (não é gravada, nem com o horário trocado por "agora") até um administrador decidir.
+  for (const m of avaliarHorarioDaVenda({ informado: venda.criado_em, agora: ref.agora ?? new Date(), caixaAbertoEm: ref.caixa?.aberto_em ?? null }).motivos) {
+    motivos.push(divergencia(m.codigo, m.mensagem));
   }
 
   venda.itens.forEach((item, i) => {

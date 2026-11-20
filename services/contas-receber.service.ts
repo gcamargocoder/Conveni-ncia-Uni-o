@@ -27,7 +27,7 @@ export async function listarContas(status?: StatusConta, clienteId?: string): Pr
   const linhas = await executar<any[]>(
     () =>
       prisma.contaReceber.findMany({
-        include: { cliente: { select: { nome: true, telefone: true } }, venda: { select: { created_at: true } } },
+        include: { cliente: { select: { nome: true, telefone: true } }, venda: { select: { created_at: true, ocorrido_em: true } } },
         where: { ...(status && { status }), ...(clienteId && { cliente_id: clienteId }) },
         orderBy: { created_at: "desc" },
         take: LIMITE_LISTAGEM,
@@ -41,7 +41,7 @@ export async function listarContas(status?: StatusConta, clienteId?: string): Pr
       ...conta,
       cliente_nome: cliente?.nome ?? "—",
       cliente_telefone: cliente?.telefone ?? null,
-      venda_created_at: venda?.created_at ?? conta.created_at,
+      venda_created_at: venda ? (venda.ocorrido_em ?? venda.created_at) : conta.created_at,
     };
   });
 }
@@ -59,7 +59,7 @@ export async function buscarConta(id: string): Promise<DetalheContaReceber | nul
       () =>
         prisma.contaReceber.findUnique({
           where: { id },
-          include: { cliente: true, venda: { select: { created_at: true } } },
+          include: { cliente: true, venda: { select: { created_at: true, ocorrido_em: true } } },
         }),
       "Erro ao buscar conta a receber"
     );
@@ -78,7 +78,7 @@ export async function buscarConta(id: string): Promise<DetalheContaReceber | nul
       ...conta,
       cliente_nome: cliente?.nome ?? "—",
       cliente_telefone: cliente?.telefone ?? null,
-      venda_created_at: venda?.created_at ?? conta.created_at,
+      venda_created_at: venda ? (venda.ocorrido_em ?? venda.created_at) : conta.created_at,
     },
     cliente,
     pagamentos,

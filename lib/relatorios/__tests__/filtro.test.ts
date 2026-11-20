@@ -72,8 +72,10 @@ describe("montarWhereVendas — janela no horário da loja", () => {
     const j = janelaDoFiltro(filtro);
     expect(j.inicio.toISOString()).toBe("2026-11-18T11:00:00.000Z");
     expect(j.fim.toISOString()).toBe("2026-11-18T21:01:00.000Z");
-    const where = montarWhereVendas(filtro) as { AND: { created_at?: { gte: Date; lt: Date } }[] };
-    expect(where.AND[0].created_at).toEqual({ gte: j.inicio, lt: j.fim });
+    // horário da venda = ocorrido_em; vendas antigas (ocorrido_em nulo) usam created_at — mesma janela, fim exclusivo
+    const where = montarWhereVendas(filtro) as { AND: { OR?: { ocorrido_em?: unknown; created_at?: unknown }[] }[] };
+    const faixa = { gte: j.inicio, lt: j.fim };
+    expect(where.AND[0].OR).toEqual([{ ocorrido_em: faixa }, { ocorrido_em: null, created_at: faixa }]);
   });
 
   it("dia inteiro 18: a venda 21h44 (00:44Z do dia 19) está dentro; 00h00 do dia 19 está fora", () => {

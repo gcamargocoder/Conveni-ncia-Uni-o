@@ -3,6 +3,8 @@ import { executar } from "./prisma/query-helpers";
 import type { Prisma } from "@prisma/client";
 import { janelaDoFiltro, type FiltroVendas } from "@/lib/relatorios/filtro";
 import type { FormaCaixa } from "@/lib/caixa/tipos";
+import { horarioDaVenda } from "@/lib/vendas/horario";
+import { ORDEM_HORARIO_DA_VENDA, vendaNaJanela } from "@/lib/vendas/filtro-horario";
 
 export interface VendaRelatorio {
   id: string;
@@ -20,17 +22,21 @@ export interface ResumoPorFormaPagamento {
 
 const LIMITE_VENDAS_RELATORIO = 1000;
 
+/** `created_at` das vendas devolvidas é o HORÁRIO DA VENDA (ocorrido_em; vendas antigas: created_at). */
 export async function listarVendasPorPeriodo(inicio: Date, fim: Date): Promise<VendaRelatorio[]> {
-  return executar(
+  const linhas = await executar<(VendaRelatorio & { ocorrido_em: string | null })[]>(
     () =>
       prisma.venda.findMany({
-        select: { id: true, created_at: true, total: true, forma_pagamento: true, cancelada: true },
-        where: { created_at: { gte: inicio, lte: fim } },
-        orderBy: { created_at: "desc" },
+        select: { id: true, created_at: true, ocorrido_em: true, total: true, forma_pagamento: true, cancelada: true },
+        where: vendaNaJanela(inicio, fim, true),
+        orderBy: ORDEM_HORARIO_DA_VENDA,
         take: LIMITE_VENDAS_RELATORIO,
       }),
     "Erro ao listar vendas"
   );
+  return linhas
+    .map(({ ocorrido_em, ...v }) => ({ ...v, created_at: horarioDaVenda({ created_at: v.created_at, ocorrido_em }).toISOString() }))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
 export function resumirPorFormaPagamento(vendas: VendaRelatorio[]): ResumoPorFormaPagamento[] {
@@ -89,7 +95,7 @@ export const LIMITE_EXPORTACAO = 20000;
 
 export function montarWhereVendas(f: FiltroVendas): Prisma.VendaWhereInput {
   const { inicio, fim } = janelaDoFiltro(f);
-  const e: Prisma.VendaWhereInput[] = [{ created_at: { gte: inicio, lt: fim } }];
+  const e: Prisma.VendaWhereInput[] = [vendaNaJanela(inicio, fim)];
   if (f.funcionario_id) e.push({ funcionario_id: f.funcionario_id });
   if (f.situacao === "ativas") e.push({ cancelada: false });
   if (f.situacao === "canceladas") e.push({ cancelada: true });
@@ -105,6 +111,8 @@ export function montarWhereVendas(f: FiltroVendas): Prisma.VendaWhereInput {
 interface LinhaBruta {
   id: string;
   created_at: string;
+  /** Horário da venda segundo o dispositivo (validado); null nas vendas antigas. */
+  ocorrido_em?: string | null;
   total: number;
   forma_pagamento: string;
   cancelada: boolean;
@@ -125,7 +133,8 @@ export function paraVendaDetalhada(l: LinhaBruta): VendaDetalhada {
   const primeiro = lancamentos[0];
   return {
     id: l.id,
-    created_at: l.created_at,
+    // Horário DA VENDA (ocorrido_em; venda antiga: created_at). O horário de gravação no servidor segue em created_at no banco.
+    created_at: horarioDaVenda({ created_at: l.created_at, ocorrido_em: l.ocorrido_em }).toISOString(),
     total: l.total,
     total_centavos,
     forma_pagamento: l.forma_pagamento,
@@ -150,11 +159,12 @@ export async function listarVendasDetalhadas(filtro: FiltroVendas, limite = LIMI
     () =>
       prisma.venda.findMany({
         where: montarWhereVendas(filtro),
-        orderBy: { created_at: "desc" },
+        orderBy: ORDEM_HORARIO_DA_VENDA,
         take: limite + 1,
         select: {
           id: true,
           created_at: true,
+          ocorrido_em: true,
           total: true,
           forma_pagamento: true,
           cancelada: true,
@@ -169,7 +179,8 @@ export async function listarVendasDetalhadas(filtro: FiltroVendas, limite = LIMI
     "Erro ao listar vendas"
   );
   const truncado = linhas.length > limite;
-  return { vendas: linhas.slice(0, limite).map(paraVendaDetalhada), truncado };
+  const vendas = linhas.slice(0, limite).map(paraVendaDetalhada).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return { vendas, truncado };
 }
 
 export interface LinhaResumoForma {

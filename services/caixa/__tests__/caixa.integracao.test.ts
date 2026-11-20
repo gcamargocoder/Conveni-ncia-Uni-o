@@ -260,7 +260,7 @@ describe("vendas lançadas no caixa", () => {
   it.each(["dinheiro", "pix", "credito", "debito"] as const)("venda em %s gera um lançamento com autoria, terminal e valor em centavos", async (forma) => {
     const caixa = await caixaAberto();
     const id = randomUUID();
-    const quando = new Date(Date.now() - 60_000).toISOString();
+    const quando = new Date(Date.now() + 30_000).toISOString(); // depois da abertura do caixa, dentro da tolerância do relógio
     expect(await sincronizarVendaAction(id, payload(caixa, { forma_pagamento: forma, criado_em: quando, origem: "offline" }))).toMatchObject({ sucesso: true });
 
     const [m] = await movimentos(caixa);

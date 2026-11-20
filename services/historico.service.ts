@@ -1,4 +1,6 @@
 import { prisma } from "./prisma/client";
+import { horarioDaVenda } from "@/lib/vendas/horario";
+import { ORDEM_HORARIO_DA_VENDA, vendaNaJanela } from "@/lib/vendas/filtro-horario";
 import { executar } from "./prisma/query-helpers";
 
 export interface EventoHistorico {
@@ -47,13 +49,14 @@ export async function listarHistorico(inicio: Date, fim: Date): Promise<EventoHi
           select: {
             id: true,
             created_at: true,
+            ocorrido_em: true,
             total: true,
             dispositivo: true,
             funcionario: funcionarioSelecionado,
             itens: { select: { produto: produtoSelecionado } },
           },
-          where: { created_at: { gte: inicio, lte: fim } },
-          orderBy: { created_at: "desc" },
+          where: vendaNaJanela(inicio, fim, true),
+          orderBy: ORDEM_HORARIO_DA_VENDA,
           take: LIMITE_EVENTOS,
         }),
       "Erro ao listar vendas do histórico"
@@ -91,7 +94,8 @@ export async function listarHistorico(inicio: Date, fim: Date): Promise<EventoHi
       descricao: `Venda finalizada — R$ ${Number(v.total).toFixed(2)}`,
       funcionario_nome: funcionarioNome,
       dispositivo: resumirDispositivo(v.dispositivo),
-      created_at: v.created_at,
+      // horário da VENDA (ocorrido_em; venda antiga: created_at)
+      created_at: horarioDaVenda({ created_at: v.created_at, ocorrido_em: v.ocorrido_em }).toISOString(),
       texto_busca: ["venda", funcionarioNome, ...nomesProdutos, ...codigosBarras].join(" ").toLowerCase(),
       produto_nome: nomesProdutos.length > 0 ? nomesProdutos.join(", ") : "—",
       quantidade: null,

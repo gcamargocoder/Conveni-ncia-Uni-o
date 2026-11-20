@@ -71,12 +71,13 @@ async function carregarReferencia(venda: VendaRecebida, banco: LeitorBanco = pri
       select: { id: true, preco_venda: true, ativo: true, deleted_at: true },
     }),
     typeof venda.caixa_id === "string" && uuidValido(venda.caixa_id)
-      ? banco.caixa.findUnique({ where: { id: venda.caixa_id }, select: { status: true, terminal_id: true } })
+      ? banco.caixa.findUnique({ where: { id: venda.caixa_id }, select: { status: true, terminal_id: true, aberto_em: true } })
       : Promise.resolve(undefined),
   ]);
 
   return {
-    caixa: caixa === undefined ? undefined : caixa && { status: caixa.status as "aberto" | "fechado", terminal_id: caixa.terminal_id },
+    caixa: caixa === undefined ? undefined : caixa && { status: caixa.status as "aberto" | "fechado", terminal_id: caixa.terminal_id, aberto_em: caixa.aberto_em },
+    agora: new Date(),
     funcionario: funcionario && {
       ativo: funcionario.ativo,
       deleted: funcionario.deleted_at !== null,

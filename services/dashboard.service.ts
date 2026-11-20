@@ -21,7 +21,8 @@ export async function buscarResumoDashboard(agora: Date = new Date()): Promise<R
       () => prisma.$queryRaw`
         SELECT count(*)::int AS quantidade_vendas, COALESCE(SUM(total), 0)::float8 AS faturamento
         FROM vendas
-        WHERE cancelada = false AND created_at >= ${inicioDoDia} AND created_at < ${fimDoDia}`,
+        WHERE cancelada = false
+          AND COALESCE(ocorrido_em, created_at) >= ${inicioDoDia} AND COALESCE(ocorrido_em, created_at) < ${fimDoDia}`,
       "Erro ao buscar resumo de vendas"
     ),
     listarProdutosAbaixoDoMinimo(),

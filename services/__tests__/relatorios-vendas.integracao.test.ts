@@ -89,10 +89,12 @@ describe("a mesma venda, o mesmo horário em todos os lugares (banco em UTC, ser
     const id = await vender(caixa, TERMINAL_A, ids.ana, em("2026-03-10", "21:44:11"));
 
     // 1) banco: instante real preservado (UTC do dia seguinte), tanto na venda quanto no lançamento do caixa
+    //    ocorrido_em = horário do aparelho; created_at = horário em que o SERVIDOR gravou (nunca o do aparelho)
     const linha = await prisma.venda.findUniqueOrThrow({ where: { id } });
-    expect(linha.created_at.toISOString()).toBe("2026-03-11T00:44:11.000Z");
+    expect(linha.ocorrido_em!.toISOString()).toBe("2026-03-11T00:44:11.000Z");
+    expect(Math.abs(linha.created_at.getTime() - Date.now())).toBeLessThan(60_000);
     const mov = await prisma.movimentoCaixa.findFirstOrThrow({ where: { venda_id: id } });
-    expect(mov.ocorrido_em.toISOString()).toBe(linha.created_at.toISOString());
+    expect(mov.ocorrido_em.toISOString()).toBe(linha.ocorrido_em!.toISOString());
 
     // 2) relatório do dia 10 contém a venda; o do dia 11 NÃO
     const doDia10 = await listarVendasDetalhadas(filtro({ de: "2026-03-10" }));
@@ -131,20 +133,22 @@ describe("a mesma venda, o mesmo horário em todos os lugares (banco em UTC, ser
     const id = await vender(caixa, TERMINAL_A, ids.ana, em("2026-03-10", "21:10:00"));
     const v = (await listarVendasDetalhadas(filtro({ de: "2026-03-10" }))).vendas.find((x) => x.id === id)!;
     expect(formatarDataHoraComSegundos(v.created_at)).toBe("10/03/2026 21:10:00");
-    const gravadaEm = (await prisma.venda.findUniqueOrThrow({ where: { id } })).created_at;
-    expect(gravadaEm.getTime()).toBe(instanteLocal("2026-03-10", "21:10:00").getTime());
+    const gravada = await prisma.venda.findUniqueOrThrow({ where: { id } });
+    expect(gravada.ocorrido_em!.getTime()).toBe(instanteLocal("2026-03-10", "21:10:00").getTime());
+    expect(gravada.created_at.getTime()).toBeGreaterThan(instanteLocal("2026-03-11", "00:00:00").getTime()); // recebida só depois, no servidor
   });
 
-  it("sem horário do aparelho, usa o agora do servidor; horário no futuro (relógio errado) é descartado", async () => {
+  it("sem horário do aparelho ou com horário no futuro: ocorrido_em fica vazio (nunca vira 'agora') e created_at é o do servidor", async () => {
     const caixa = await abrir(TERMINAL_A, ids.ana, em("2026-03-10", "08:00"));
     const antes = Date.now();
     const semHora = await vender(caixa, TERMINAL_A, ids.ana, null);
     const futuro = await vender(caixa, TERMINAL_A, ids.ana, new Date(Date.now() + 3 * 3600_000).toISOString());
     const depois = Date.now();
     for (const id of [semHora, futuro]) {
-      const t = (await prisma.venda.findUniqueOrThrow({ where: { id } })).created_at.getTime();
-      expect(t).toBeGreaterThanOrEqual(antes - 1000);
-      expect(t).toBeLessThanOrEqual(depois + 1000);
+      const v = await prisma.venda.findUniqueOrThrow({ where: { id } });
+      expect(v.ocorrido_em).toBeNull();
+      expect(v.created_at.getTime()).toBeGreaterThanOrEqual(antes - 1000);
+      expect(v.created_at.getTime()).toBeLessThanOrEqual(depois + 1000);
     }
   });
 });

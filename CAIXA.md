@@ -236,6 +236,35 @@ caixa aberto para vender.
 - Aplicar: `npm run db:migrate` (o `npm start` já roda `prisma migrate deploy`). **Esta entrega não aplicou
   migration em produção.**
 
+## 10b. Horário da venda e correções de segurança (SEC-01)
+
+**Horário confiável.** `vendas.created_at` é SEMPRE o horário em que o servidor gravou a venda; o relógio do aparelho nunca o substitui.
+O horário informado pelo aparelho vai para `vendas.ocorrido_em` (coluna aditiva, anulável, migration `20260107000000_venda_ocorrido_em`),
+só depois de validado:
+
+| Situação | Resultado |
+|---|---|
+| até 5 min no futuro | aceita |
+| mais de 5 min no futuro (relógio adiantado) | **retida para revisão** (`horario_futuro`) |
+| mais de 48 h antes da chegada ao servidor | **retida** (`fora_janela_offline`) |
+| anterior à abertura do caixa da venda | **retida** (`anterior_abertura_caixa`) |
+| ilegível | **retida** (`horario_invalido`) |
+| ausente (venda sem horário informado) | grava com `ocorrido_em` nulo (vale `created_at`) |
+
+"Retida" reaproveita `vendas_revisao` (mecanismo já existente): o conteúdo original e o horário informado ficam preservados, a venda
+**não** é gravada, não baixa estoque, não lança no caixa e não cria conta a receber até um administrador aprovar ou rejeitar. O reenvio do mesmo
+evento é idempotente (um único registro de revisão; após a aprovação, `jaExistia`). No aparelho o item fica como "em revisão", fora do reenvio
+automático e nunca é apagado.
+Relatórios, histórico, dashboard, planilha, contas a receber e recibo usam `ocorrido_em` quando existe e `created_at` nas vendas antigas
+(nenhum dado histórico foi alterado). `produtos_mais_vendidos` (função SQL) continua pela janela do banco.
+
+**Estorno avulso.** O estorno por `movimento_id` só vale para movimentos próprios do caixa (suprimento, sangria, despesa, ajustes). Lançamentos de
+venda e recebimentos de conta a receber são recusados no servidor (cancelamento de venda pelo fluxo próprio; recebimento pela própria conta), sem
+consumir a autorização.
+
+**Consulta de recebimentos do caixa.** `recebimentosDoCaixaAction` exige sessão, confere no banco que o caixa pertence ao terminal informado e que o
+usuário é administrador ou atuou naquele caixa. Limitação: não há tenant e a sessão não é presa a um terminal.
+
 ## 11. Decisões comerciais pendentes (não inventadas)
 
 1. **Sangria/suprimento offline** por operador de caixa/frentista (hoje exigem PIN de gerente, com conexão).

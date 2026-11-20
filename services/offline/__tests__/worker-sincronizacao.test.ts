@@ -174,3 +174,39 @@ describe("processarFilaSincronizacao — volume alto", () => {
     expect(await db.fila_sincronizacao.where("status").equals("sincronizado").count()).toBe(QUANTIDADE);
   }, 15000);
 });
+describe("processarFilaSincronizacao — venda retida por horário (SEC-01)", () => {
+  it("fica na fila e na lista de vendas locais como EM REVISÃO (não sincronizada), com conteúdo e horário originais, mesmo depois de fechar e reabrir o app", async () => {
+    const vendaId = await criarVendaPendente();
+    const db = getOfflineDB();
+    const original = JSON.parse((await db.fila_sincronizacao.get(vendaId))!.payload) as PayloadVendaFila;
+    expect(typeof original.criado_em).toBe("string"); // horário do aparelho registrado na venda
+
+    const motivo = "A venda ocorreu em 10/03/2026 21:44, fora da janela de 48 horas de sincronização.";
+    const enviar = vi.fn().mockResolvedValue({ sucesso: false, retida: "em_revisao", erro: "Venda retida para revisão do administrador.", motivos: [motivo] });
+    const r = await processarFilaSincronizacao(enviar);
+    expect(r.retidas).toBe(1);
+    expect(r.sucesso).toBe(0);
+
+    // fecha o app (IndexedDB) e reabre com módulos novos, como numa recarga da página
+    getOfflineDB().close();
+    vi.resetModules();
+    const { getOfflineDB: reabrir } = await import("../db");
+    const novoDb = reabrir();
+
+    const fila = await novoDb.fila_sincronizacao.get(vendaId);
+    expect(fila?.status).toBe("em_revisao");
+    expect(fila?.erro).toContain("48 horas");
+    expect(JSON.parse(fila!.payload)).toEqual(original); // conteúdo e horário do aparelho intactos
+    const local = await novoDb.vendas_locais.get(vendaId);
+    expect(local?.status).toBe("em_revisao");
+    expect(local?.status).not.toBe("sincronizada");
+    expect(await novoDb.itens_venda_locais.where("venda_id").equals(vendaId).count()).toBeGreaterThan(0);
+
+    // nova rodada da fila: o item retido NÃO é reenviado nem apagado (o servidor, de todo modo, é idempotente)
+    const { processarFilaSincronizacao: processar } = await import("../worker-sincronizacao.service");
+    const segundo = vi.fn().mockResolvedValue({ sucesso: true });
+    await processar(segundo);
+    expect(segundo).not.toHaveBeenCalled();
+    expect((await novoDb.fila_sincronizacao.get(vendaId))?.status).toBe("em_revisao");
+  });
+});
