@@ -44,7 +44,7 @@ import * as acoesUsuarios from "@/lib/usuarios/actions";
 import { alterarAtivoUsuarioAction } from "@/lib/usuarios/actions";
 import { criarClienteAction } from "@/lib/clientes/actions";
 import { gerarBackupAction } from "@/lib/backup/actions";
-import { buscarAlteracoesCatalogoAction } from "@/lib/offline-sync/actions";
+import { buscarAlteracoesCatalogoAction, buscarPaginaCatalogoAction } from "@/lib/offline-sync/actions";
 import { sincronizarVendaAction } from "@/lib/offline-sync/sincronizar-venda-action";
 import { registrarMovimentacaoAction } from "@/lib/estoque/actions";
 
@@ -317,6 +317,8 @@ describe("sessão, expiração e logout", () => {
   });
 });
 
+const PAGINA_INICIAL = { entidade: "categorias", desde: null, ate: null, apos: null } as const;
+
 // ===========================================================================
 describe("autorização no servidor", () => {
   it("sem sessão: todas as Server Actions de negócio e administrativas são recusadas", async () => {
@@ -326,6 +328,7 @@ describe("autorização no servidor", () => {
     expect(await gerarBackupAction()).toMatchObject({ sucesso: false, erro: negado });
     expect(await registrarMovimentacaoAction({ produto_id: "x", tipo: "entrada", quantidade: 1 }, "1234")).toMatchObject({ sucesso: false });
     await expect(buscarAlteracoesCatalogoAction(null)).rejects.toThrow(negado);
+    await expect(buscarPaginaCatalogoAction(PAGINA_INICIAL)).rejects.toThrow(negado);
 
     expect(await prisma.cliente.count()).toBe(0);
     expect(await prisma.usuario.count()).toBe(0);
@@ -338,6 +341,7 @@ describe("autorização no servidor", () => {
     // Cadastrar cliente agora exige também o PIN de proprietário/gerente: só o login não basta.
     expect((await criarClienteAction({ nome: "Fulano" }, "")).sucesso).toBe(false);
     await expect(buscarAlteracoesCatalogoAction(null)).resolves.toBeDefined();
+    await expect(buscarPaginaCatalogoAction(PAGINA_INICIAL)).resolves.toMatchObject({ proximo: null });
 
     expect((await gerarBackupAction()).sucesso).toBe(false);
     expect((await alterarAtivoUsuarioAction("00000000-0000-0000-0000-000000000000", false)).sucesso).toBe(false);
@@ -360,6 +364,7 @@ describe("autorização no servidor", () => {
     await definirAtivo(op.id, false, "outro");
 
     await expect(buscarAlteracoesCatalogoAction(null)).rejects.toThrow();
+    await expect(buscarPaginaCatalogoAction(PAGINA_INICIAL)).rejects.toThrow();
     expect(await prisma.sessao.count({ where: { usuario_id: op.id } })).toBe(0);
   });
 
