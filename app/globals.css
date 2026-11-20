@@ -63,8 +63,9 @@
     }
   }
 
+  html,
   body {
-    background: white;
+    background: #fff !important;
     color: #0f172a;
     padding: 0 !important;
   }

@@ -28,6 +28,32 @@ export function emailConfigurado(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
+export type VariavelEmail = "RESEND_API_KEY" | "EMAIL_FROM" | "APP_URL";
+
+/**
+ * Quais das três variáveis exigidas pelo fluxo de e-mail estão ausentes (vazias contam como ausentes).
+ * APP_URL só é exigida em produção (fora dela o link cai em localhost, como em `urlBase`). Nunca devolve valores.
+ */
+export function variaveisEmailAusentes(
+  env: Record<string, string | undefined> = process.env,
+  producao: boolean = process.env.NODE_ENV === "production"
+): VariavelEmail[] {
+  const ausentes: VariavelEmail[] = [];
+  if (!env.RESEND_API_KEY?.trim()) ausentes.push("RESEND_API_KEY");
+  if (!env.EMAIL_FROM?.trim()) ausentes.push("EMAIL_FROM");
+  if (producao && !env.APP_URL?.trim()) ausentes.push("APP_URL");
+  return ausentes;
+}
+
+/** Texto do aviso do menu Usuários: diz exatamente o que falta e o que fica sem funcionar (sem prometer envio). */
+export function descreverEmailAusente(ausentes: VariavelEmail[]): string {
+  const faltam = ausentes.join(", ");
+  return (
+    `Faltam no servidor: ${faltam}. Enquanto isso, o sistema NÃO envia e-mails: a recuperação de senha e o convite de ` +
+    `ativação não funcionam. O login, os PINs e o restante do sistema não são afetados. Veja AUTENTICACAO.md.`
+  );
+}
+
 export async function enviarEmail(mensagem: MensagemEmail): Promise<ResultadoEnvioEmail> {
   const chave = process.env.RESEND_API_KEY;
   const remetente = process.env.EMAIL_FROM;
