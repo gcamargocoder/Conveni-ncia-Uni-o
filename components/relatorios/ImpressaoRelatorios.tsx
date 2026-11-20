@@ -11,9 +11,13 @@ import { formatarDataHora } from "@/lib/utils/fuso";
 
 interface ImpressaoRelatoriosProps {
   rotuloPeriodo: string;
+  /** Filtros aplicados (funcionário, terminal, forma, situação, turno), já em texto. */
+  filtrosAplicados?: string[];
+  /** A tela só carregou as vendas mais recentes: a impressão avisa que está incompleta. */
+  truncado?: boolean;
   resumoPagamento: ResumoPorFormaPagamento[];
   totalGeral: number;
-  vendas: VendaRelatorio[];
+  vendas: (VendaRelatorio & { funcionario_nome: string })[];
   estoque: EstoqueAtual[];
   contasFiadoPendentes: ContaReceberPendente[];
 }
@@ -36,6 +40,8 @@ const OPCOES: { chave: keyof SelecaoImpressao; rotulo: string }[] = [
 
 export function ImpressaoRelatorios({
   rotuloPeriodo,
+  filtrosAplicados = [],
+  truncado = false,
   resumoPagamento,
   totalGeral,
   vendas,
@@ -113,13 +119,22 @@ export function ImpressaoRelatorios({
             <dt className="font-medium text-slate-600">Gerado em:</dt>
             <dd className="text-slate-900">{geradoEm}</dd>
           </div>
+          <div className="flex gap-2 col-span-2">
+            <dt className="font-medium text-slate-600">Filtros:</dt>
+            <dd className="text-slate-900">
+              {filtrosAplicados.length ? filtrosAplicados.join(" · ") : "Nenhum (todas as vendas do período)"}
+            </dd>
+          </div>
         </dl>
 
         {selecao.faturamento && (
           <section className="mb-6">
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Faturamento por forma de pagamento</h3>
+            <h3 className="break-after-avoid text-sm font-bold text-slate-900 mb-1">Faturamento por forma de pagamento</h3>
             <p className="text-lg font-bold text-slate-900 mb-2">Total geral: R$ {totalGeral.toFixed(2)}</p>
-            <table className="w-full text-xs border-collapse">
+            {resumoPagamento.length === 0 ? (
+              <p className="text-xs text-slate-700">Nenhuma venda no período.</p>
+            ) : (
+              <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b-2 border-slate-900 text-left">
                   <th className="py-1.5 pr-2">Forma de pagamento</th>
@@ -132,21 +147,31 @@ export function ImpressaoRelatorios({
                   <tr key={r.forma_pagamento} className="border-b border-slate-200">
                     <td className="py-1.5 pr-2 capitalize">{r.forma_pagamento}</td>
                     <td className="py-1.5 pr-2">{r.quantidade}</td>
-                    <td className="py-1.5 font-semibold">R$ {r.total.toFixed(2)}</td>
+                    <td className="py-1.5 font-semibold whitespace-nowrap">R$ {r.total.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            )}
           </section>
         )}
 
         {selecao.vendas && (
           <section className="mb-6">
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Vendas do período ({vendas.length})</h3>
-            <table className="w-full text-xs border-collapse">
+            <h3 className="break-after-avoid text-sm font-bold text-slate-900 mb-2">Vendas do período ({vendas.length})</h3>
+            {truncado && (
+              <p className="text-xs text-slate-700 mb-2">
+                Lista parcial: só as {vendas.length} vendas mais recentes do período. Refine os filtros ou use a planilha Excel.
+              </p>
+            )}
+            {vendas.length === 0 ? (
+              <p className="text-xs text-slate-700">Nenhuma venda no período.</p>
+            ) : (
+              <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b-2 border-slate-900 text-left">
                   <th className="py-1.5 pr-2">Data</th>
+                  <th className="py-1.5 pr-2">Funcionário</th>
                   <th className="py-1.5 pr-2">Total</th>
                   <th className="py-1.5">Pagamento</th>
                 </tr>
@@ -155,7 +180,8 @@ export function ImpressaoRelatorios({
                 {vendas.map((v) => (
                   <tr key={v.id} className="border-b border-slate-200">
                     <td className="py-1.5 pr-2 whitespace-nowrap">{formatarDataHora(v.created_at)}</td>
-                    <td className="py-1.5 pr-2">R$ {v.total.toFixed(2)}</td>
+                    <td className="py-1.5 pr-2">{v.funcionario_nome}</td>
+                    <td className="py-1.5 pr-2 whitespace-nowrap">R$ {v.total.toFixed(2)}</td>
                     <td className="py-1.5 capitalize">
                       {v.forma_pagamento}
                       {v.cancelada ? " (cancelada)" : ""}
@@ -164,13 +190,17 @@ export function ImpressaoRelatorios({
                 ))}
               </tbody>
             </table>
+            )}
           </section>
         )}
 
         {selecao.estoque && (
           <section className="mb-6">
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Estoque completo ({estoque.length})</h3>
-            <table className="w-full text-xs border-collapse">
+            <h3 className="break-after-avoid text-sm font-bold text-slate-900 mb-2">Estoque completo ({estoque.length})</h3>
+            {estoque.length === 0 ? (
+              <p className="text-xs text-slate-700">Nenhum produto cadastrado.</p>
+            ) : (
+              <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b-2 border-slate-900 text-left">
                   <th className="py-1.5 pr-2">Produto</th>
@@ -191,16 +221,20 @@ export function ImpressaoRelatorios({
                 })}
               </tbody>
             </table>
+            )}
           </section>
         )}
 
         {selecao.fiado && (
           <section>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
+            <h3 className="break-after-avoid text-sm font-bold text-slate-900 mb-1">
               Clientes fiado pendentes ({contasFiadoPendentes.length})
             </h3>
             <p className="text-lg font-bold text-slate-900 mb-2">Total a receber: R$ {totalFiadoPendente.toFixed(2)}</p>
-            <table className="w-full text-xs border-collapse">
+            {contasFiadoPendentes.length === 0 ? (
+              <p className="text-xs text-slate-700">Nenhuma conta fiado em aberto.</p>
+            ) : (
+              <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b-2 border-slate-900 text-left">
                   <th className="py-1.5 pr-2">Cliente</th>
@@ -216,13 +250,14 @@ export function ImpressaoRelatorios({
                     className={`border-b border-slate-200 ${c.dias_em_aberto > 30 ? "bg-slate-100" : ""}`}
                   >
                     <td className="py-1.5 pr-2">{c.cliente_nome}</td>
-                    <td className="py-1.5 pr-2 font-semibold">R$ {c.saldo_atual.toFixed(2)}</td>
+                    <td className="py-1.5 pr-2 font-semibold whitespace-nowrap">R$ {c.saldo_atual.toFixed(2)}</td>
                     <td className="py-1.5 pr-2 capitalize">{c.status === "PARCIAL" ? "Parcial" : "Em aberto"}</td>
                     <td className="py-1.5">{c.dias_em_aberto} dia(s)</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            )}
           </section>
         )}
       </div>

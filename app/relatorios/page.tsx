@@ -6,13 +6,13 @@ import { listarFuncionarios } from "@/services/funcionarios.service";
 import { PRESETS_PERIODO, ROTULOS_PRESET, ROTULO_SITUACAO, SITUACOES, lerFiltroVendas, paraQueryString, type ParametrosBrutos } from "@/lib/relatorios/filtro";
 import { rotuloTerminal } from "@/lib/relatorios/planilha-vendas";
 import { FORMAS_CAIXA, ROTULO_FORMA } from "@/lib/caixa/tipos";
-import { BotaoExportarExcel } from "@/components/relatorios/BotaoExportarExcel";
 import { listarEstoqueAtual } from "@/services/estoque.service";
 import { listarContasPendentes } from "@/services/contas-receber.service";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
-import { ImpressaoRelatorios } from "@/components/relatorios/ImpressaoRelatorios";
+import { CabecalhoRelatorios } from "@/components/relatorios/CabecalhoRelatorios";
+import { descreverFiltros } from "@/lib/relatorios/descrever-filtros";
 import { exigirSessao } from "@/lib/auth/servidor";
 import { formatarData, formatarDataHora, instanteLocal } from "@/lib/utils/fuso";
 
@@ -44,6 +44,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   const vendasParaImpressao = vendas.map((v) => ({
     id: v.id,
     created_at: v.created_at,
+    funcionario_nome: v.funcionario_nome,
     total: v.total,
     forma_pagamento: v.forma_pagamento,
     cancelada: v.cancelada,
@@ -56,26 +57,29 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   const consulta = paraQueryString(filtro);
   const rotuloTurno = (t: (typeof turnos)[number]) =>
     `${formatarDataHora(t.aberto_em)}${t.fechado_em ? ` → ${formatarDataHora(t.fechado_em)}` : " (aberto)"} · ${t.aberto_por} · ${rotuloTerminal(t.terminal_id, t.terminal_papel)}`;
+  const terminalEscolhido = terminais.find((t) => t.terminal_id === filtro.terminal_id);
+  const turnoEscolhido = turnos.find((t) => t.id === filtro.caixa_id);
+  const filtrosAplicados = descreverFiltros(filtro, {
+    funcionario: funcionarios.find((f) => f.id === filtro.funcionario_id)?.nome ?? null,
+    terminal: terminalEscolhido ? rotuloTerminal(terminalEscolhido.terminal_id, terminalEscolhido.terminal_papel) : null,
+    turno: turnoEscolhido ? rotuloTurno(turnoEscolhido) : null,
+  });
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
-      <header className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Relatórios</h1>
-          <p className="text-slate-500 text-sm">Vendas e estoque por período — horário da loja (Brasília)</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <BotaoExportarExcel consulta={consulta} />
-          <ImpressaoRelatorios
-            rotuloPeriodo={rotuloPeriodo}
-            resumoPagamento={resumo}
-            totalGeral={totalGeral}
-            vendas={vendasParaImpressao}
-            estoque={estoque}
-            contasFiadoPendentes={contasPendentes}
-          />
-        </div>
-      </header>
+      <CabecalhoRelatorios
+        consulta={consulta}
+        impressao={{
+          rotuloPeriodo,
+          filtrosAplicados,
+          truncado,
+          resumoPagamento: resumo,
+          totalGeral,
+          vendas: vendasParaImpressao,
+          estoque,
+          contasFiadoPendentes: contasPendentes,
+        }}
+      />
 
       <Card className="no-print">
         <form method="get" action="/relatorios" className="flex flex-col gap-4">

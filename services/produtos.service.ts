@@ -4,18 +4,30 @@ import { Produto } from "@/types/produto";
 import { DadosProduto } from "@/lib/produtos/validacao";
 
 const ERRO_CODIGO_BARRAS_DUPLICADO = "Já existe um produto com esse código de barras.";
-const LIMITE_LISTAGEM = 500; // proteção contra carregar um catálogo gigante numa única resposta
+const LIMITE_LISTAGEM = 500; // sincronização do catálogo offline (não alterar aqui: outra regra, outro uso)
 
-export async function listarProdutos(): Promise<Produto[]> {
-  return executar(
-    () =>
-      prisma.produto.findMany({
-        where: { deleted_at: null },
-        orderBy: { nome: "asc" },
-        take: LIMITE_LISTAGEM,
-      }),
-    "Erro ao listar produtos"
-  );
+/**
+ * Teto de produtos carregados na tela Produtos (pesquisa no navegador sobre a lista carregada).
+ * Cada produto serializa em ~0,4 KB: 3.000 produtos ≈ 1,2 MB numa única resposta, aceitável; acima disso a tela
+ * AVISA quantos ficaram de fora (nunca esconde). O Estoque usa 1.000.
+ */
+export const LIMITE_TELA_PRODUTOS = 3000;
+
+export interface ListagemProdutos {
+  produtos: Produto[];
+  /** Total cadastrado (ativos e inativos, sem exclusão lógica), mesmo quando maior que o carregado. */
+  total: number;
+}
+
+export async function listarProdutosParaTela(limite: number = LIMITE_TELA_PRODUTOS): Promise<ListagemProdutos> {
+  return executar(async () => {
+    const where = { deleted_at: null };
+    const [produtos, total] = await Promise.all([
+      prisma.produto.findMany({ where, orderBy: { nome: "asc" }, take: limite }),
+      prisma.produto.count({ where }),
+    ]);
+    return { produtos, total };
+  }, "Erro ao listar produtos");
 }
 
 /**

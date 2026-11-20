@@ -1,7 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { exigirAdmin } from "@/lib/auth/servidor";
 import { listarUsuarios } from "@/services/usuarios.service";
-import { emailConfigurado } from "@/lib/email/enviar";
+import { descreverEmailAusente, variaveisEmailAusentes } from "@/lib/email/enviar";
 import { UsuarioAcoes } from "@/components/usuarios/UsuarioAcoes";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -21,6 +21,7 @@ function formatarData(iso: string | null): string {
 export default async function UsuariosPage() {
   const sessao = await exigirAdmin();
   const usuarios = await listarUsuarios();
+  const emailAusente = variaveisEmailAusentes();
 
   return (
     <main className="max-w-5xl mx-auto px-6 py-8 flex flex-col gap-6">
@@ -43,10 +44,9 @@ export default async function UsuariosPage() {
         </Alert>
       )}
 
-      {!emailConfigurado() && (
+      {emailAusente.length > 0 && (
         <Alert variante="warning" titulo="E-mail não configurado">
-          A recuperação de senha e o envio de links de redefinição dependem de RESEND_API_KEY, EMAIL_FROM e APP_URL no
-          servidor. Veja AUTENTICACAO.md.
+          {descreverEmailAusente(emailAusente)}
         </Alert>
       )}
 
