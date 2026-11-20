@@ -1,6 +1,12 @@
 import Link from "next/link";
-import { Receipt, ShoppingBag, Boxes, HandCoins } from "lucide-react";
-import { listarVendasPorPeriodo, resumirPorFormaPagamento } from "@/services/relatorios.service";
+import { Receipt, ShoppingBag, Boxes, HandCoins, Filter } from "lucide-react";
+import { LIMITE_TELA, listarTurnosParaFiltro, listarVendasDetalhadas, resumirPagamentos } from "@/services/relatorios.service";
+import { listarTerminais } from "@/services/caixa-consulta.service";
+import { listarFuncionarios } from "@/services/funcionarios.service";
+import { PRESETS_PERIODO, ROTULOS_PRESET, ROTULO_SITUACAO, SITUACOES, lerFiltroVendas, paraQueryString, type ParametrosBrutos } from "@/lib/relatorios/filtro";
+import { rotuloTerminal } from "@/lib/relatorios/planilha-vendas";
+import { FORMAS_CAIXA, ROTULO_FORMA } from "@/lib/caixa/tipos";
+import { BotaoExportarExcel } from "@/components/relatorios/BotaoExportarExcel";
 import { listarEstoqueAtual } from "@/services/estoque.service";
 import { listarContasPendentes } from "@/services/contas-receber.service";
 import { Card } from "@/components/ui/Card";
@@ -8,53 +14,183 @@ import { Badge } from "@/components/ui/Badge";
 import { Table } from "@/components/ui/Table";
 import { ImpressaoRelatorios } from "@/components/relatorios/ImpressaoRelatorios";
 import { exigirSessao } from "@/lib/auth/servidor";
-import { formatarDataHora } from "@/lib/utils/fuso";
+import { formatarData, formatarDataHora, instanteLocal } from "@/lib/utils/fuso";
 
 export const dynamic = "force-dynamic";
 
-const PERIODOS: Record<string, number> = { hoje: 1, "7dias": 7, "30dias": 30 };
-const ROTULOS_PERIODO: Record<string, string> = { hoje: "Hoje", "7dias": "7 dias", "30dias": "30 dias" };
+const CAMPO = "h-11 w-full px-3 rounded-xl text-base bg-white border border-slate-300";
+const ROTULO = "text-sm font-medium text-slate-700";
 
-export default async function RelatoriosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ periodo?: string }>;
-}) {
-  await exigirSessao();
-  const { periodo: periodoParam } = await searchParams;
-  const periodo = periodoParam ?? "7dias";
-  const dias = PERIODOS[periodo] ?? 7;
+export default async function RelatoriosPage({ searchParams }: { searchParams: Promise<ParametrosBrutos> }) {
+  const sessao = await exigirSessao();
+  const params = await searchParams;
+  const admin = sessao.usuario.papel === "admin";
+  const { filtro, preset, avisos } = lerFiltroVendas(params);
 
-  const fim = new Date();
-  const inicio = new Date();
-  inicio.setDate(inicio.getDate() - dias);
-
-  const [vendas, estoque, contasPendentes] = await Promise.all([
-    listarVendasPorPeriodo(inicio, fim),
+  const [{ vendas, truncado }, estoque, contasPendentes, funcionarios, terminais, turnos] = await Promise.all([
+    listarVendasDetalhadas(filtro, LIMITE_TELA),
     listarEstoqueAtual(),
     listarContasPendentes(),
+    listarFuncionarios(),
+    listarTerminais(),
+    admin ? listarTurnosParaFiltro() : Promise.resolve([]),
   ]);
 
-  const resumo = resumirPorFormaPagamento(vendas);
-  const totalGeral = resumo.reduce((s, r) => s + r.total, 0);
+  // Faturamento por forma a partir dos PAGAMENTOS: venda dividida entra em cada forma, sem duplicar o total.
+  const resumoFormas = resumirPagamentos(vendas, filtro.forma);
+  const resumo = resumoFormas.map((l) => ({ forma_pagamento: l.forma, quantidade: l.quantidade_vendas, total: l.total_centavos / 100 }));
+  const totalGeral = resumoFormas.reduce((s, r) => s + r.total_centavos, 0) / 100;
   const totalFiadoPendente = contasPendentes.reduce((s, c) => s + c.saldo_atual, 0);
+  const vendasParaImpressao = vendas.map((v) => ({
+    id: v.id,
+    created_at: v.created_at,
+    total: v.total,
+    forma_pagamento: v.forma_pagamento,
+    cancelada: v.cancelada,
+  }));
+
+  const dia = (d: string) => formatarData(instanteLocal(d, "12:00"));
+  const rotuloPeriodo = preset
+    ? ROTULOS_PRESET[preset]
+    : `${dia(filtro.dataInicial)}${filtro.horaInicial ? ` ${filtro.horaInicial}` : ""} a ${dia(filtro.dataFinal)}${filtro.horaFinal ? ` ${filtro.horaFinal}` : ""}`;
+  const consulta = paraQueryString(filtro);
+  const rotuloTurno = (t: (typeof turnos)[number]) =>
+    `${formatarDataHora(t.aberto_em)}${t.fechado_em ? ` → ${formatarDataHora(t.fechado_em)}` : " (aberto)"} · ${t.aberto_por} · ${rotuloTerminal(t.terminal_id, t.terminal_papel)}`;
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-6">
       <header className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Relatórios</h1>
-          <p className="text-slate-500 text-sm">Vendas e estoque por período</p>
+          <p className="text-slate-500 text-sm">Vendas e estoque por período — horário da loja (Brasília)</p>
         </div>
-        <ImpressaoRelatorios
-          rotuloPeriodo={ROTULOS_PERIODO[periodo] ?? "7 dias"}
-          resumoPagamento={resumo}
-          totalGeral={totalGeral}
-          vendas={vendas}
-          estoque={estoque}
-          contasFiadoPendentes={contasPendentes}
-        />
+        <div className="flex items-center gap-2">
+          <BotaoExportarExcel consulta={consulta} />
+          <ImpressaoRelatorios
+            rotuloPeriodo={rotuloPeriodo}
+            resumoPagamento={resumo}
+            totalGeral={totalGeral}
+            vendas={vendasParaImpressao}
+            estoque={estoque}
+            contasFiadoPendentes={contasPendentes}
+          />
+        </div>
       </header>
+
+      <Card className="no-print">
+        <form method="get" action="/relatorios" className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-slate-500" />
+              <h2 className="text-sm font-semibold text-slate-700">Filtros</h2>
+            </div>
+            <div className="flex gap-1.5">
+              {Object.keys(PRESETS_PERIODO).map((p) => (
+                <Link
+                  key={p}
+                  href={`/relatorios?periodo=${p}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    p === preset ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {ROTULOS_PRESET[p]}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Data inicial</span>
+              <input className={CAMPO} type="date" name="de" defaultValue={filtro.dataInicial} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Data final</span>
+              <input className={CAMPO} type="date" name="ate" defaultValue={filtro.dataFinal} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Horário inicial</span>
+              <input className={CAMPO} type="time" name="hi" defaultValue={filtro.horaInicial ?? ""} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Horário final</span>
+              <input className={CAMPO} type="time" name="hf" defaultValue={filtro.horaFinal ?? ""} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Funcionário</span>
+              <select className={CAMPO} name="funcionario" defaultValue={filtro.funcionario_id ?? ""}>
+                <option value="">Todos</option>
+                {funcionarios.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Terminal</span>
+              <select className={CAMPO} name="terminal" defaultValue={filtro.terminal_id ?? ""}>
+                <option value="">Todos</option>
+                {terminais.map((t) => (
+                  <option key={t.terminal_id} value={t.terminal_id}>
+                    {rotuloTerminal(t.terminal_id, t.terminal_papel)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Forma de pagamento</span>
+              <select className={CAMPO} name="forma" defaultValue={filtro.forma ?? ""}>
+                <option value="">Todas</option>
+                {FORMAS_CAIXA.map((f) => (
+                  <option key={f} value={f}>
+                    {ROTULO_FORMA[f]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className={ROTULO}>Situação</span>
+              <select className={CAMPO} name="situacao" defaultValue={filtro.situacao}>
+                {SITUACOES.map((x) => (
+                  <option key={x} value={x}>
+                    {ROTULO_SITUACAO[x]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {admin && (
+              <label className="flex flex-col gap-1.5 col-span-2 lg:col-span-4">
+                <span className={ROTULO}>Turno (caixa)</span>
+                <select className={CAMPO} name="caixa" defaultValue={filtro.caixa_id ?? ""}>
+                  <option value="">Todos</option>
+                  {turnos.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {rotuloTurno(t)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button type="submit" className="h-11 px-5 rounded-xl text-sm font-semibold bg-brand-700 text-white hover:bg-brand-800">
+              Filtrar
+            </button>
+            <Link href="/relatorios" className="text-sm text-slate-500 hover:underline">
+              Limpar
+            </Link>
+          </div>
+          {avisos.length > 0 && (
+            <ul className="text-xs text-amber-700 list-disc pl-5">
+              {avisos.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          )}
+        </form>
+      </Card>
 
       <Card className="no-print">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -62,26 +198,13 @@ export default async function RelatoriosPage({
             <Receipt className="w-4 h-4 text-amber-500" />
             <h2 className="text-sm font-semibold text-slate-700">Faturamento por forma de pagamento</h2>
           </div>
-          <div className="flex gap-1.5">
-            {Object.keys(PERIODOS).map((p) => (
-              <Link
-                key={p}
-                href={`/relatorios?periodo=${p}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  p === periodo ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {ROTULOS_PERIODO[p]}
-              </Link>
-            ))}
-          </div>
         </div>
 
         <p className="text-3xl font-bold text-slate-900 tabular-nums mb-4">R$ {totalGeral.toFixed(2)}</p>
 
         <Table
           colunas={[
-            { chave: "forma_pagamento", cabecalho: "Forma de pagamento", className: "capitalize" },
+            { chave: "forma_pagamento", cabecalho: "Forma de pagamento", render: (r) => ROTULO_FORMA[r.forma_pagamento] },
             { chave: "quantidade", cabecalho: "Qtd. vendas" },
             { chave: "total", cabecalho: "Total", render: (r) => `R$ ${r.total.toFixed(2)}` },
           ]}
@@ -96,19 +219,31 @@ export default async function RelatoriosPage({
       <Card semPadding className="no-print">
         <div className="flex items-center gap-2 px-5 pt-5 mb-1">
           <ShoppingBag className="w-4 h-4 text-teal-500" />
-          <h2 className="text-sm font-semibold text-slate-700">Vendas do período</h2>
+          <h2 className="text-sm font-semibold text-slate-700">Vendas do período ({vendas.length})</h2>
         </div>
+        {truncado && (
+          <p className="px-5 text-xs text-amber-700">Mostrando as {LIMITE_TELA} vendas mais recentes. Refine os filtros; a planilha Excel traz o conjunto completo.</p>
+        )}
         <Table
           colunas={[
             { chave: "created_at", cabecalho: "Data", render: (v) => formatarDataHora(v.created_at) },
+            { chave: "funcionario_nome", cabecalho: "Funcionário" },
+            { chave: "terminal", cabecalho: "Terminal", render: (v) => rotuloTerminal(v.terminal_id, v.terminal_papel) },
             { chave: "total", cabecalho: "Total", render: (v) => `R$ ${v.total.toFixed(2)}` },
             {
               chave: "forma_pagamento",
               cabecalho: "Pagamento",
               render: (v) => (
-                <span className="flex items-center gap-2 capitalize">
-                  {v.forma_pagamento}
-                  {v.cancelada && <Badge variante="danger">cancelada</Badge>}
+                <span className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-2">
+                    {v.forma_pagamento === "misto" ? "Dividido" : ROTULO_FORMA[v.forma_pagamento as keyof typeof ROTULO_FORMA] ?? v.forma_pagamento}
+                    {v.cancelada && <Badge variante="danger">cancelada</Badge>}
+                  </span>
+                  {v.pagamentos.length > 1 && (
+                    <span className="text-xs text-slate-500">
+                      {v.pagamentos.map((p) => `${ROTULO_FORMA[p.forma]} R$ ${(p.valor_centavos / 100).toFixed(2)}`).join(" + ")}
+                    </span>
+                  )}
                 </span>
               ),
             },
