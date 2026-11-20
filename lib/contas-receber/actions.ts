@@ -30,6 +30,8 @@ export interface ResultadoAcaoPagamento {
   erro?: string;
   saldoAtual?: number;
   status?: string;
+  /** O recebimento entrou no caixa aberto do terminal? */
+  lancadoNoCaixa?: boolean;
   erroAutorizacao?: string;
 }
 
@@ -37,7 +39,8 @@ export async function registrarPagamentoAction(
   contaReceberId: string,
   dados: DadosFormPagamento,
   saldoAtual: number,
-  pin: string
+  pin: string,
+  terminalId?: string | null
 ): Promise<ResultadoAcaoPagamento> {
   const acesso = await verificarAcesso();
   if (!acesso.ok) return { sucesso: false, erro: acesso.erro };
@@ -60,9 +63,11 @@ export async function registrarPagamentoAction(
       formaPagamento: dados.formaPagamento,
       funcionarioId: auth.funcionario.id,
       observacoes: dados.observacoes,
+      usuarioId: acesso.sessao.usuario.id,
+      terminalId: terminalId ?? null,
     });
     revalidatePath("/contas-receber");
-    return { sucesso: true, saldoAtual: resultado.saldoAtual, status: resultado.status };
+    return { sucesso: true, saldoAtual: resultado.saldoAtual, status: resultado.status, lancadoNoCaixa: resultado.lancadoNoCaixa };
   } catch (e) {
     return { sucesso: false, erro: (e as Error).message };
   }

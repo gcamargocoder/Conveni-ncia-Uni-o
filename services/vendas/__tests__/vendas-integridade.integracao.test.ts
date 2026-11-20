@@ -55,11 +55,13 @@ const ids = {
   cliente: "",
   operador: "",
   admin: "",
+  caixaAberto: "", // caixa (terminal) em que as vendas de teste são lançadas
 };
+const TERMINAL = "terminal-teste-1";
 
 async function limparTudo() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "vendas_revisao", "recebimentos", "contas_receber", "movimentacoes_estoque", "itens_venda", "vendas", "produtos", "categorias", "funcionarios", "clientes", "sessoes", "tokens_recuperacao", "limites_tentativa", "usuarios", "tentativas_pin" RESTART IDENTITY CASCADE'
+    'TRUNCATE TABLE "auditoria_caixa", "movimentos_caixa", "caixa_conflitos", "caixas", "vendas_revisao", "recebimentos", "contas_receber", "movimentacoes_estoque", "itens_venda", "vendas", "produtos", "categorias", "funcionarios", "clientes", "sessoes", "tokens_recuperacao", "limites_tentativa", "usuarios", "tentativas_pin" RESTART IDENTITY CASCADE'
   );
 }
 
@@ -79,6 +81,8 @@ function payload(sobrescrever: Partial<PayloadVendaFila> = {}): PayloadVendaFila
     funcionario_id: ids.caixa,
     forma_pagamento: "pix",
     total: 20,
+    caixa_id: ids.caixaAberto,
+    dispositivo: TERMINAL,
     itens: [{ produto_id: ids.produto, quantidade: 2, preco_unitario: 10 }],
     ...sobrescrever,
   };
@@ -117,6 +121,12 @@ beforeEach(async () => {
   await f("Rui Removido", "caixa", { deleted_at: new Date() });
 
   ids.cliente = (await prisma.cliente.create({ data: { nome: "Cliente Fiado" } })).id;
+
+  // Vender exige caixa aberto no terminal: as vendas deste arquivo entram neste caixa.
+  ids.caixaAberto = randomUUID();
+  await prisma.caixa.create({
+    data: { id: ids.caixaAberto, terminal_id: TERMINAL, fundo_inicial_centavos: 10000, aberto_em: new Date(), aberto_por_funcionario_id: ids.caixa, origem_abertura: "online" },
+  });
 
   // estoque inicial: 100 unidades
   await prisma.movimentacaoEstoque.create({
@@ -426,12 +436,12 @@ describe("idempotência e concorrência", () => {
 describe("PDV online (finalizarVendaAction)", () => {
   it("preço adulterado no carrinho online também é retido; preço correto grava e devolve o id", async () => {
     await entrarComo("op@loja.com");
-    const adulterado = await finalizarVendaAction([{ produto_id: ids.produto, nome: "x", quantidade: 1, preco_unitario: 0.5 }], "pix", "1234");
+    const adulterado = await finalizarVendaAction([{ produto_id: ids.produto, nome: "x", quantidade: 1, preco_unitario: 0.5 }], "pix", "1234", ids.caixaAberto);
     expect(adulterado.sucesso).toBe(false);
     expect(adulterado.erroGeral).toMatch(/revisão/);
     expect(await contar.vendas()).toBe(0);
 
-    const ok = await finalizarVendaAction([{ produto_id: ids.produto, nome: "x", quantidade: 1, preco_unitario: 10 }], "pix", "1234");
+    const ok = await finalizarVendaAction([{ produto_id: ids.produto, nome: "x", quantidade: 1, preco_unitario: 10 }], "pix", "1234", ids.caixaAberto);
     expect(ok.sucesso).toBe(true);
     const venda = await prisma.venda.findUniqueOrThrow({ where: { id: ok.vendaId! } });
     expect(venda.usuario_id).toBe(ids.operador);

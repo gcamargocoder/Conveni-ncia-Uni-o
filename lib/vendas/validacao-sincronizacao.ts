@@ -1,6 +1,7 @@
 import { possuiPermissao } from "@/lib/auth/permissoes";
 import type { Cargo } from "@/types/funcionario";
 import type { FormaPagamento } from "@/types/venda";
+import { validarPagamentosVenda, uuidOk, type PagamentoVenda } from "@/lib/caixa/validacao";
 
 /**
  * Regras do servidor para uma venda que chega da fila offline (ou do PDV online).
@@ -35,7 +36,15 @@ export interface ItemRecebido {
 
 export interface VendaRecebida {
   funcionario_id: string;
-  forma_pagamento: FormaPagamento;
+  /** "misto" = pagamento dividido (detalhado em `pagamentos`). */
+  forma_pagamento: FormaPagamento | "misto";
+  /** Caixa (terminal) da venda. Obrigatório: venda sem caixa fica retida para o administrador. */
+  caixa_id?: string | null;
+  pagamentos?: PagamentoVenda[];
+  /** Relógio do terminal quando a venda ocorreu. */
+  criado_em?: string;
+  /** Se a venda foi feita sem conexão (informado pelo aparelho; serve à auditoria, não à autorização). */
+  origem?: "online" | "offline";
   total?: number;
   dispositivo?: string;
   terminal?: string;
@@ -43,7 +52,7 @@ export interface VendaRecebida {
   cliente_id?: string | null;
 }
 
-export const FORMAS_PAGAMENTO: readonly FormaPagamento[] = ["dinheiro", "debito", "credito", "pix", "fiado"];
+export const FORMAS_PAGAMENTO: readonly (FormaPagamento | "misto")[] = ["dinheiro", "debito", "credito", "pix", "fiado", "misto"];
 export const MAX_ITENS_POR_VENDA = 500;
 /** Limites das colunas: quantidade Decimal(10,3), preço/total Decimal(10,2). */
 export const MAX_QUANTIDADE = 9_999_999;
@@ -95,7 +104,11 @@ export function validarEstruturaVenda(id: unknown, payload: unknown): MotivoRevi
   if (p.cliente_id != null && !uuidValido(p.cliente_id)) {
     motivos.push(bloqueante("cliente_invalido", "Cliente da venda inválido."));
   }
-  if (p.forma_pagamento === "fiado" && !uuidValido(p.cliente_id)) {
+  if (p.caixa_id != null && !uuidOk(p.caixa_id)) motivos.push(bloqueante("caixa_invalido", "Caixa da venda inválido."));
+  const temFiado =
+    p.forma_pagamento === "fiado" ||
+    (Array.isArray(p.pagamentos) && p.pagamentos.some((x) => (x as { forma?: unknown })?.forma === "fiado"));
+  if (temFiado && !uuidValido(p.cliente_id)) {
     motivos.push(bloqueante("fiado_sem_cliente", "Venda fiado exige um cliente cadastrado."));
   }
 
@@ -132,6 +145,19 @@ export function validarEstruturaVenda(id: unknown, payload: unknown): MotivoRevi
 
   if (totalCentavos > MAX_VALOR_CENTAVOS) motivos.push(bloqueante("total_excede_limite", "Total da venda acima do limite."));
 
+  if (p.pagamentos !== undefined && p.pagamentos !== null) {
+    // Pagamento dividido: cada forma é validada e a soma tem de bater com o total dos itens.
+    const erros = validarPagamentosVenda(p.pagamentos, totalCentavos);
+    for (const e of erros) motivos.push(bloqueante("pagamentos_invalidos", e));
+    const formas = Array.isArray(p.pagamentos) ? p.pagamentos.length : 0;
+    if (formas > 1 && p.forma_pagamento !== "misto") motivos.push(bloqueante("pagamento_incoerente", "Forma de pagamento incoerente com o pagamento dividido."));
+    if (formas === 1 && p.forma_pagamento !== ((p.pagamentos as unknown[])[0] as { forma?: unknown })?.forma) {
+      motivos.push(bloqueante("pagamento_incoerente", "Forma de pagamento incoerente com o pagamento informado."));
+    }
+  } else if (p.forma_pagamento === "misto") {
+    motivos.push(bloqueante("pagamentos_ausentes", "Pagamento dividido sem o detalhe de cada forma."));
+  }
+
   return motivos;
 }
 
@@ -141,7 +167,14 @@ export interface ReferenciaProduto {
   deleted: boolean;
 }
 
+export interface ReferenciaCaixa {
+  status: "aberto" | "fechado";
+  terminal_id: string;
+}
+
 export interface ReferenciaVenda {
+  /** undefined = a venda não informou caixa; null = informou um caixa que não existe (ainda) no servidor. */
+  caixa?: ReferenciaCaixa | null;
   funcionario: { ativo: boolean; deleted: boolean; cargo: Cargo } | null;
   /** undefined quando a venda não informa cliente. */
   cliente?: { ativo: boolean; deleted: boolean } | null;
@@ -176,6 +209,17 @@ export function avaliarVendaContraReferencia(venda: VendaRecebida, ref: Referenc
       motivos.push(bloqueante("cliente_inexistente", "O cliente informado não existe."));
     } else if (!ref.cliente.ativo || ref.cliente.deleted) {
       motivos.push(divergencia("cliente_inativo", "O cliente informado está inativo ou foi removido."));
+    }
+  }
+
+  if (!venda.caixa_id) {
+    motivos.push(divergencia("sem_caixa", "Venda sem caixa vinculado: não foi feita com caixa aberto."));
+  } else if (ref.caixa) {
+    if (ref.caixa.status !== "aberto") {
+      motivos.push(divergencia("caixa_fechado", "O caixa desta venda já foi fechado no servidor."));
+    }
+    if (typeof venda.dispositivo === "string" && ref.caixa.terminal_id !== venda.dispositivo) {
+      motivos.push(divergencia("caixa_outro_terminal", "A venda diz pertencer a um caixa de outro terminal."));
     }
   }
 

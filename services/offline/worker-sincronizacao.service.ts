@@ -6,11 +6,21 @@ import { registrarLog } from "./logs.service";
 import { EVENTO_ATUALIZAR_REVISAO } from "@/lib/vendas/eventos";
 import { verificarIntegridadeFila } from "./integridade.service";
 import { sincronizarVendaAction, PayloadVendaFila, ResultadoSincronizarVenda } from "@/lib/offline-sync/sincronizar-venda-action";
+import { sincronizarOperacaoCaixaAction, type OperacaoCaixa, type ResultadoSincronizarCaixa } from "@/lib/caixa/actions";
+import {
+  marcarAberturaSincronizada,
+  marcarConflitoDoCaixa,
+  marcarFechamentoConfirmado,
+  marcarOperacaoSincronizada,
+  pendenciasDoCaixa,
+} from "./caixa-local.service";
 
 export type FuncaoEnvioVenda = (
   id: string,
   payload: PayloadVendaFila
 ) => Promise<ResultadoSincronizarVenda>;
+
+export type FuncaoEnvioCaixa = (op: OperacaoCaixa) => Promise<ResultadoSincronizarCaixa>;
 
 const DEGRAUS_BACKOFF_MS = [2000, 5000, 10000, 30000, 60000, 300000];
 const CHAVE_ULTIMA_SINCRONIZACAO_FILA = "ultima_sincronizacao_fila";
@@ -74,7 +84,8 @@ export async function recuperarEnviosAbandonados(agora = Date.now()): Promise<nu
 
 export async function processarFilaSincronizacao(
   enviarVenda: FuncaoEnvioVenda = sincronizarVendaAction,
-  tempoLimiteEnvioMs: number = TEMPO_LIMITE_ENVIO_MS
+  tempoLimiteEnvioMs: number = TEMPO_LIMITE_ENVIO_MS,
+  enviarCaixa: FuncaoEnvioCaixa = sincronizarOperacaoCaixaAction
 ): Promise<ResultadoProcessamentoFila> {
   const inicioMs = Date.now();
 
@@ -103,12 +114,29 @@ export async function processarFilaSincronizacao(
   let retidas = 0;
 
   for (const item of itens) {
-    if (item.tipo !== "venda" || !elegivelParaTentativa(item)) {
+    const ehCaixa = item.tipo.startsWith("caixa_");
+    if ((item.tipo !== "venda" && !ehCaixa) || !elegivelParaTentativa(item)) {
       ignorados++;
       continue;
     }
 
-    const resultado = await processarItemVenda(item, enviarVenda, tempoLimiteEnvioMs);
+    // A fila é processada em ordem de criação: abertura → vendas/movimentos → fechamento. Se algo anterior
+    // do MESMO caixa não foi aceito (erro de rede), o resto aguarda — nunca se fecha antes de enviar o que veio antes.
+    if (item.tipo === "caixa_fechamento") {
+      const caixaId = (lerPayload<OperacaoCaixa>(item).dados as { caixa_id: string }).caixa_id;
+      if ((await pendenciasDoCaixa(caixaId)).aguardando > 0) {
+        ignorados++; // o fechamento só segue depois de TODAS as operações anteriores do caixa
+        continue;
+      }
+    }
+
+    const resultado = ehCaixa
+      ? await processarItemCaixa(item, enviarCaixa, tempoLimiteEnvioMs)
+      : await processarItemVenda(item, enviarVenda, tempoLimiteEnvioMs);
+    if (resultado === "aguardando") {
+      ignorados++;
+      continue;
+    }
     if (resultado === "requer_login") {
       // Sessão expirada: nenhuma outra venda passaria agora. As vendas seguem
       // guardadas na fila e são enviadas quando alguém entrar de novo.
@@ -148,7 +176,7 @@ async function processarItemVenda(
   item: ItemFilaSincronizacao,
   enviarVenda: FuncaoEnvioVenda,
   tempoLimiteEnvioMs: number
-): Promise<"sucesso" | "conflito_resolvido" | "falha" | "requer_login" | "retida"> {
+): Promise<"sucesso" | "conflito_resolvido" | "falha" | "requer_login" | "retida" | "aguardando"> {
   await atualizarStatus(item.id, "sincronizando");
 
   const payload = lerPayload<PayloadVendaFila>(item);
@@ -172,6 +200,7 @@ async function processarItemVenda(
       });
       await db.vendas_locais.update(item.id, { status: "sincronizada" });
     });
+    await marcarOperacaoSincronizada(item.id);
 
     if (resultado.jaExistia) {
       await registrarEventoAuditoriaLocal("sync_item_sucesso", {
@@ -197,6 +226,13 @@ async function processarItemVenda(
     await atualizarStatus(item.id, "pendente", resultado.erro);
     await registrarLog("SYNC", "aviso", "Sincronização pausada: sessão expirada. Entre novamente para enviar as vendas pendentes.");
     return "requer_login";
+  }
+
+  if (resultado.aguardandoCaixa) {
+    // A abertura do caixa (feita offline) ainda não chegou ao servidor: não é falha da venda.
+    await atualizarStatus(item.id, "pendente", resultado.erro);
+    await registrarLog("SYNC", "aviso", `Venda ${item.id} aguardando a sincronização do caixa`);
+    return "aguardando";
   }
 
   if (resultado.retida) {
@@ -227,6 +263,62 @@ async function processarItemVenda(
     detalhes: resultado.erro,
   });
   await registrarLog("SYNC", "erro", `Falha ao sincronizar venda ${item.id}`, resultado.erro);
+  return "falha";
+}
+
+async function processarItemCaixa(
+  item: ItemFilaSincronizacao,
+  enviarCaixa: FuncaoEnvioCaixa,
+  tempoLimiteEnvioMs: number
+): Promise<"sucesso" | "conflito_resolvido" | "falha" | "requer_login" | "retida" | "aguardando"> {
+  await atualizarStatus(item.id, "sincronizando");
+  const op = lerPayload<OperacaoCaixa>(item);
+  const caixaId = op.tipo === "abertura" ? op.id : (op.dados as { caixa_id: string }).caixa_id;
+
+  let resultado: ResultadoSincronizarCaixa;
+  try {
+    resultado = await comLimiteDeTempo(enviarCaixa(op), tempoLimiteEnvioMs);
+  } catch (e) {
+    resultado = { sucesso: false, erro: (e as Error).message || "Falha de comunicação com o servidor" };
+  }
+  const db = getOfflineDB();
+
+  if (resultado.sucesso) {
+    await atualizarStatus(item.id, "sincronizado");
+    if (op.tipo === "abertura") await marcarAberturaSincronizada(op.id);
+    else if (op.tipo === "fechamento") await marcarFechamentoConfirmado(caixaId, resultado.fechamento);
+    else await marcarOperacaoSincronizada(item.id);
+    await registrarEventoAuditoriaLocal("sync_item_sucesso", {
+      funcionario_id: op.funcionario_id,
+      dispositivo: op.dispositivo,
+      detalhes: `caixa ${op.tipo}${resultado.jaExistia ? " (já existia no servidor)" : ""}`,
+    });
+    return resultado.jaExistia ? "conflito_resolvido" : "sucesso";
+  }
+
+  if (resultado.requerLogin) {
+    await atualizarStatus(item.id, "pendente", resultado.erro);
+    await registrarLog("SYNC", "aviso", "Sincronização do caixa pausada: sessão expirada.");
+    return "requer_login";
+  }
+
+  if (resultado.aguardando) {
+    await atualizarStatus(item.id, "pendente", resultado.motivo ?? resultado.erro);
+    return "aguardando";
+  }
+
+  if (resultado.conflito) {
+    // O servidor guardou a operação para o administrador. Aqui ela também é preservada, visível, fora do reenvio.
+    const motivo = resultado.motivo ?? resultado.erro ?? "conflito";
+    await db.transaction("rw", db.fila_sincronizacao, async () => atualizarStatus(item.id, "em_revisao", motivo));
+    await marcarConflitoDoCaixa(caixaId, motivo);
+    await registrarLog("SYNC", "aviso", `Operação de caixa ${op.tipo} em conflito (${item.id})`, motivo);
+    return "retida";
+  }
+
+  await incrementarTentativas(item.id);
+  await atualizarStatus(item.id, "erro", resultado.erro);
+  await registrarLog("SYNC", "erro", `Falha ao sincronizar operação de caixa ${item.id}`, resultado.erro);
   return "falha";
 }
 

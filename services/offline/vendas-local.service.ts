@@ -5,6 +5,9 @@ import { registrarEventoAuditoriaLocal } from "./auditoria-local.service";
 import { obterOuCriarIdentificadorDispositivo } from "./configuracao-local.service";
 import { obterPapelDispositivo } from "./dispositivo.service";
 import { gerarUuid } from "@/lib/utils/uuid";
+import { exigirCaixaAbertoLocal, movimentosDaVenda, estaOnline, CaixaLocalError } from "./caixa-local.service";
+import { validarPagamentosVenda, type PagamentoVenda } from "@/lib/caixa/validacao";
+import { totalEmCentavos } from "@/lib/vendas/validacao-sincronizacao";
 
 export interface DadosVendaLocal {
   itens: ItemCarrinho[];
@@ -12,6 +15,8 @@ export interface DadosVendaLocal {
   funcionarioId: string;
   funcionarioNome: string;
   clienteId?: string | null;
+  /** Pagamento dividido: cada forma com seu valor (a soma deve fechar o total). Ausente = uma forma com o total. */
+  pagamentos?: PagamentoVenda[];
 }
 
 export interface ResultadoVendaLocal {
@@ -33,14 +38,18 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
     dispositivo,
   });
 
-  const total = dados.itens.reduce((s, i) => s + i.preco_unitario * i.quantidade, 0);
+  const totalCentavos = totalEmCentavos(dados.itens);
+  const total = totalCentavos / 100;
   const criado_em = new Date().toISOString();
+  const pagamentos: PagamentoVenda[] =
+    dados.pagamentos && dados.pagamentos.length > 0 ? dados.pagamentos : [{ forma: dados.formaPagamento, valor_centavos: totalCentavos }];
+  const formaVenda = pagamentos.length > 1 ? "misto" : pagamentos[0].forma;
 
   const venda: VendaLocal = {
     id: vendaId,
     funcionario_id: dados.funcionarioId,
     funcionario_nome: dados.funcionarioNome,
-    forma_pagamento: dados.formaPagamento,
+    forma_pagamento: formaVenda,
     total,
     terminal,
     dispositivo,
@@ -61,9 +70,27 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
   try {
     const db = getOfflineDB();
 
-    if (dados.formaPagamento === "fiado" && !dados.clienteId) {
+    if (pagamentos.some((p) => p.forma === "fiado") && !dados.clienteId) {
       return { sucesso: false, erro: "Venda fiado exige um cliente selecionado." };
     }
+    const errosPagamento = validarPagamentosVenda(pagamentos, totalCentavos);
+    if (errosPagamento.length > 0) return { sucesso: false, erro: errosPagamento[0] };
+
+    // Venda presencial exige caixa ABERTO neste terminal.
+    let caixa;
+    try {
+      caixa = await exigirCaixaAbertoLocal();
+    } catch (e) {
+      if (e instanceof CaixaLocalError) return { sucesso: false, erro: e.message };
+      throw e;
+    }
+    const movimentos = movimentosDaVenda({
+      caixa,
+      vendaId,
+      pagamentos,
+      responsavel: { id: dados.funcionarioId, nome: dados.funcionarioNome },
+      ocorridoEm: criado_em,
+    });
 
     for (const item of dados.itens) {
       const estoqueAtual = await db.estoque_local.get(item.produto_id);
@@ -84,13 +111,10 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
 
     await db.transaction(
       "rw",
-      db.vendas_locais,
-      db.itens_venda_locais,
-      db.estoque_local,
-      db.fila_sincronizacao,
-      db.carrinho_local,
+      [db.vendas_locais, db.itens_venda_locais, db.estoque_local, db.fila_sincronizacao, db.carrinho_local, db.movimentos_caixa_locais],
       async () => {
         await db.vendas_locais.put(venda);
+        await db.movimentos_caixa_locais.bulkPut(movimentos);
         await db.itens_venda_locais.bulkPut(itensLocais);
 
         for (const item of dados.itens) {
@@ -105,8 +129,12 @@ export async function registrarVendaLocal(dados: DadosVendaLocal): Promise<Resul
 
         const payloadSincronizacao = {
           funcionario_id: dados.funcionarioId,
-          forma_pagamento: dados.formaPagamento,
+          forma_pagamento: formaVenda,
           total,
+          caixa_id: caixa.id,
+          pagamentos,
+          criado_em,
+          origem: estaOnline() ? ("online" as const) : ("offline" as const),
           dispositivo,
           terminal,
           itens: dados.itens.map((i) => ({

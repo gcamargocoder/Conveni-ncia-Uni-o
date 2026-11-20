@@ -12,6 +12,7 @@ import {
   type VendaRecebida,
 } from "@/lib/vendas/validacao-sincronizacao";
 import type { Cargo } from "@/types/funcionario";
+import { CaixaError } from "./caixa.service";
 
 /**
  * Porta de entrada de toda venda vinda do navegador (fila offline ou PDV online).
@@ -26,7 +27,9 @@ export type ResultadoProcessamentoVenda =
   | { status: "em_revisao"; motivos: MotivoRevisao[]; bloqueante: boolean }
   | { status: "rejeitada"; observacao: string | null }
   /** Payload sem identificador utilizável: não há como retê-lo no servidor. */
-  | { status: "invalida"; motivos: MotivoRevisao[] };
+  | { status: "invalida"; motivos: MotivoRevisao[] }
+  /** O caixa da venda ainda não chegou ao servidor (abertura offline não sincronizada): tentar de novo depois. */
+  | { status: "aguardando_caixa" };
 
 function payloadLimpo(p: VendaRecebida) {
   // Só os campos conhecidos (e o que será gravado), para a revisão não carregar lixo arbitrário.
@@ -37,6 +40,10 @@ function payloadLimpo(p: VendaRecebida) {
     dispositivo: typeof p.dispositivo === "string" ? p.dispositivo.slice(0, 300) : null,
     terminal: typeof p.terminal === "string" ? p.terminal.slice(0, 40) : null,
     cliente_id: p.cliente_id ?? null,
+    caixa_id: typeof p.caixa_id === "string" ? p.caixa_id.slice(0, 80) : null,
+    criado_em: typeof p.criado_em === "string" ? p.criado_em.slice(0, 40) : null,
+    origem: p.origem === "offline" ? "offline" : "online",
+    pagamentos: Array.isArray(p.pagamentos) ? p.pagamentos.slice(0, 10) : null,
     itens: Array.isArray(p.itens)
       ? p.itens.slice(0, 500).map((i) => ({
           produto_id: i?.produto_id,
@@ -47,11 +54,11 @@ function payloadLimpo(p: VendaRecebida) {
   };
 }
 
-type LeitorBanco = Pick<typeof prisma, "funcionario" | "cliente" | "produto">;
+type LeitorBanco = Pick<typeof prisma, "funcionario" | "cliente" | "produto" | "caixa">;
 
 async function carregarReferencia(venda: VendaRecebida, banco: LeitorBanco = prisma): Promise<ReferenciaVenda> {
   const idsProdutos = [...new Set(venda.itens.map((i) => i.produto_id))];
-  const [funcionario, cliente, produtos] = await Promise.all([
+  const [funcionario, cliente, produtos, caixa] = await Promise.all([
     banco.funcionario.findUnique({
       where: { id: venda.funcionario_id },
       select: { ativo: true, deleted_at: true, cargo: true },
@@ -63,9 +70,13 @@ async function carregarReferencia(venda: VendaRecebida, banco: LeitorBanco = pri
       where: { id: { in: idsProdutos } },
       select: { id: true, preco_venda: true, ativo: true, deleted_at: true },
     }),
+    typeof venda.caixa_id === "string" && uuidValido(venda.caixa_id)
+      ? banco.caixa.findUnique({ where: { id: venda.caixa_id }, select: { status: true, terminal_id: true } })
+      : Promise.resolve(undefined),
   ]);
 
   return {
+    caixa: caixa === undefined ? undefined : caixa && { status: caixa.status as "aberto" | "fechado", terminal_id: caixa.terminal_id },
     funcionario: funcionario && {
       ativo: funcionario.ativo,
       deleted: funcionario.deleted_at !== null,
@@ -103,6 +114,22 @@ async function reter(
   return { status: "em_revisao", motivos, bloqueante };
 }
 
+function dadosParaGravar(id: string, venda: VendaRecebida, usuarioId: string | null) {
+  return {
+    id,
+    funcionario_id: venda.funcionario_id,
+    usuario_id: usuarioId,
+    forma_pagamento: venda.forma_pagamento,
+    dispositivo: venda.dispositivo,
+    cliente_id: venda.cliente_id,
+    caixa_id: venda.caixa_id ?? null,
+    pagamentos: venda.pagamentos,
+    ocorrido_em: venda.criado_em ?? null,
+    origem: venda.origem === "offline" ? ("offline" as const) : ("online" as const),
+    itens: venda.itens.map((i) => ({ produto_id: i.produto_id, nome: "", quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
+  };
+}
+
 export async function processarVendaRecebida(
   id: string,
   payload: unknown,
@@ -126,19 +153,24 @@ export async function processarVendaRecebida(
   const venda = payload as VendaRecebida;
   if (possuiMotivoBloqueante(motivosEstrutura)) return reter(id, usuarioId, venda, motivosEstrutura);
 
-  const motivos = avaliarVendaContraReferencia(venda, await carregarReferencia(venda));
+  const referencia = await carregarReferencia(venda);
+  // Venda feita offline ANTES da abertura do caixa chegar ao servidor: não é descartada nem retida,
+  // apenas aguarda (o aparelho reenvia depois que a abertura sincronizar).
+  if (venda.caixa_id && referencia.caixa === null) return { status: "aguardando_caixa" };
+
+  const motivos = avaliarVendaContraReferencia(venda, referencia);
   if (motivos.length > 0) return reter(id, usuarioId, venda, motivos);
 
-  const resultado = await registrarVenda({
-    id,
-    funcionario_id: venda.funcionario_id,
-    usuario_id: usuarioId,
-    forma_pagamento: venda.forma_pagamento,
-    dispositivo: venda.dispositivo,
-    cliente_id: venda.cliente_id,
-    itens: venda.itens.map((i) => ({ produto_id: i.produto_id, nome: "", quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
-  });
-  return { status: "registrada", jaExistia: resultado.jaExistia };
+  try {
+    const resultado = await registrarVenda(dadosParaGravar(id, venda, usuarioId));
+    return { status: "registrada", jaExistia: resultado.jaExistia };
+  } catch (e) {
+    // O caixa foi fechado (ou mudou) entre a conferência e a gravação: a venda fica retida, nunca perdida.
+    if (e instanceof CaixaError && (e.codigo === "caixa_fechado" || e.codigo === "caixa_outro_terminal")) {
+      return reter(id, usuarioId, venda, [{ codigo: e.codigo, mensagem: e.message, gravidade: "divergencia" }]);
+    }
+    throw e;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,15 +278,7 @@ export async function aprovarVendaEmRevisao(id: string, adminId: string, observa
           return { ok: false, erro: "Os dados mudaram desde que a venda foi retida. Recarregue a página, confira os motivos atualizados e decida de novo." };
         }
 
-        await gravarVendaNaTransacao(tx, {
-          id,
-          funcionario_id: venda.funcionario_id,
-          usuario_id: revisao.usuario_id,
-          forma_pagamento: venda.forma_pagamento,
-          dispositivo: venda.dispositivo,
-          cliente_id: venda.cliente_id,
-          itens: venda.itens.map((i) => ({ produto_id: i.produto_id, nome: "", quantidade: i.quantidade, preco_unitario: i.preco_unitario })),
-        });
+        await gravarVendaNaTransacao(tx, dadosParaGravar(id, venda, revisao.usuario_id));
 
         await tx.vendaRevisao.update({
           where: { id },
@@ -265,6 +289,9 @@ export async function aprovarVendaEmRevisao(id: string, adminId: string, observa
       { timeout: 15000 }
     );
   } catch (e) {
+    if (e instanceof CaixaError) {
+      return { ok: false, erro: `O caixa não aceita a venda: ${e.message} Reabra o caixa (permissão administrativa) ou rejeite a venda.` };
+    }
     return { ok: false, erro: `Erro ao aprovar a venda: ${(e as Error).message}` };
   }
 }

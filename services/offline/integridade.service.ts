@@ -43,6 +43,13 @@ function validarItem(item: ItemFilaSincronizacao): string | null {
     return "payload não é um JSON válido";
   }
 
+  if (item.tipo.startsWith("caixa_")) {
+    const p = payload as Record<string, unknown>;
+    if (!p || typeof p.tipo !== "string" || !p.dados || typeof p.funcionario_id !== "string") {
+      return "payload de operação de caixa incompleto";
+    }
+  }
+
   if (item.tipo === "venda") {
     const p = payload as Record<string, unknown>;
     if (!p.funcionario_id || !p.forma_pagamento || !Array.isArray(p.itens) || p.itens.length === 0) {

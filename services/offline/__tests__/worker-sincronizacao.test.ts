@@ -4,6 +4,7 @@ import { registrarVendaLocal } from "../vendas-local.service";
 import { enfileirar, atualizarStatus } from "../fila-sincronizacao.service";
 import { listarAuditoriaLocal } from "../auditoria-local.service";
 import { getOfflineDB } from "../db";
+import { prepararCaixaDeTeste } from "./caixa-fixture";
 import { ItemCarrinho } from "@/lib/vendas/carrinho";
 import type { PayloadVendaFila } from "@/lib/offline-sync/sincronizar-venda-action";
 
@@ -18,6 +19,7 @@ beforeEach(async () => {
     db.auditoria_local.clear(),
     db.configuracoes_local.clear(),
   ]);
+  await prepararCaixaDeTeste();
   // Etapa 8.2: registrarVendaLocal agora valida estoque de verdade.
   // Este arquivo testa sincronização, não estoque — mantém "p1" com
   // estoque de sobra para não interferir nesses testes.

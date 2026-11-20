@@ -1,5 +1,6 @@
 import Dexie, { Table } from "dexie";
 import { cargoPodeUsarPinOffline } from "@/lib/auth/permissoes";
+import type { FormaCaixa, OrigemOperacao, ResumoCaixa, Sentido, TipoMovimento, ConferenciaInformada, DiferencaForma } from "@/lib/caixa/tipos";
 
 export interface ProdutoLocal {
   id: string;
@@ -52,7 +53,73 @@ export interface EstoqueLocal {
   updated_at: string;
 }
 
-export type TipoOperacaoFila = "venda" | "movimentacao_estoque";
+export type TipoOperacaoFila =
+  | "venda"
+  | "movimentacao_estoque"
+  | "caixa_abertura"
+  | "caixa_movimento"
+  | "caixa_estorno"
+  | "caixa_fechamento";
+
+/**
+ * Caixa no aparelho. O caixa pertence ao TERMINAL (este navegador). Tudo o que acontece nele é gravado
+ * aqui primeiro (funciona offline) e enviado depois pela fila. `*_sincronizada/confirmado` indicam o que
+ * o servidor já aceitou: um fechamento só é "confirmado" depois da resposta do servidor.
+ */
+export interface CaixaLocal {
+  id: string;
+  terminal_id: string;
+  terminal_papel: string | null;
+  status: "aberto" | "fechado";
+  fundo_inicial_centavos: number;
+  observacoes_abertura: string | null;
+  aberto_em: string;
+  aberto_por_funcionario_id: string;
+  aberto_por_funcionario_nome: string;
+  origem_abertura: "online" | "offline";
+  abertura_sincronizada: boolean;
+  fechado_em: string | null;
+  fechado_por_funcionario_id: string | null;
+  fechado_por_funcionario_nome: string | null;
+  origem_fechamento: "online" | "offline" | null;
+  conferencia: ConferenciaInformada | null;
+  justificativa_divergencia: string | null;
+  resumo_local: ResumoCaixa | null;
+  diferencas_local: DiferencaForma[] | null;
+  diferenca_total_centavos: number | null;
+  fechamento_confirmado_servidor: boolean;
+  resumo_servidor: unknown | null;
+  /** Operação recusada pelo servidor e preservada para tratamento do administrador. */
+  conflito: string | null;
+}
+
+export interface MovimentoCaixaLocal {
+  id: string;
+  caixa_id: string;
+  /** Id da operação na fila (venda: id da venda; demais: o próprio id da operação). */
+  operacao_id: string;
+  tipo: TipoMovimento;
+  sentido: Sentido;
+  forma_pagamento: FormaCaixa;
+  valor_centavos: number;
+  funcionario_id: string;
+  funcionario_nome: string;
+  dispositivo: string;
+  origem: "online" | "offline";
+  origem_operacao: OrigemOperacao;
+  venda_id: string | null;
+  estorno_de_id: string | null;
+  ordem: number | null;
+  descricao: string | null;
+  justificativa: string | null;
+  cartao_bandeira: string | null;
+  cartao_adquirente: string | null;
+  cartao_parcelas: number | null;
+  cartao_taxa_centavos: number | null;
+  transacao_id: string | null;
+  ocorrido_em: string;
+  sincronizado: boolean;
+}
 /**
  * "em_revisao": o servidor reteve a venda para um administrador decidir; "rejeitada": foi
  * rejeitada (ou era inválida). Em ambos os casos a venda PERMANECE no aparelho, visível,
@@ -138,7 +205,12 @@ export type TipoEventoAuditoriaLocal =
   | "sync_item_erro"
   | "estoque_insuficiente_tentativa"
   | "estoque_ajuste_automatico"
-  | "venda_bloqueada_estoque";
+  | "venda_bloqueada_estoque"
+  | "caixa_aberto"
+  | "caixa_movimento"
+  | "caixa_estorno"
+  | "caixa_fechado"
+  | "caixa_conflito";
 
 export interface EventoAuditoriaLocal {
   id: string;
@@ -191,6 +263,8 @@ class ConvenienceOfflineDB extends Dexie {
   carrinho_local!: Table<ItemCarrinhoLocal, string>;
   auditoria_local!: Table<EventoAuditoriaLocal, string>;
   logs_tecnicos!: Table<LogTecnico, string>;
+  caixas_locais!: Table<CaixaLocal, string>;
+  movimentos_caixa_locais!: Table<MovimentoCaixaLocal, string>;
 
   constructor() {
     super("convenience-saas-offline");
@@ -299,6 +373,11 @@ class ConvenienceOfflineDB extends Dexie {
             delete f.pin_hash;
           });
       });
+    // v7 (controle de caixa): tabelas NOVAS. Nenhuma tabela existente é tocada nem recriada.
+    this.version(7).stores({
+      caixas_locais: "id, terminal_id, status, aberto_em",
+      movimentos_caixa_locais: "id, caixa_id, operacao_id, venda_id, ocorrido_em",
+    });
   }
 }
 

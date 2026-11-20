@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Dexie from "dexie";
 import { getOfflineDB } from "../db";
+import { prepararCaixaDeTeste } from "./caixa-fixture";
 import { processarFilaSincronizacao } from "../worker-sincronizacao.service";
 import { registrarVendaLocal } from "../vendas-local.service";
 import { listarPendentes, listarRetidas, contarPendentes } from "../fila-sincronizacao.service";
@@ -30,6 +31,7 @@ async function limparBanco() {
     db.funcionarios_local.clear(),
     db.credenciais_pin_local.clear(),
   ]);
+  await prepararCaixaDeTeste();
   await db.estoque_local.put({ produto_id: "p1", quantidade_atual: 1000, estoque_minimo: 0, updated_at: "" });
 }
 

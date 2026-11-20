@@ -9,6 +9,7 @@ import { PinInput } from "@/components/auth/PinInput";
 import { useToast } from "@/components/ui/ToastProvider";
 import { registrarPagamentoAction } from "@/lib/contas-receber/actions";
 import { validarPagamento } from "@/lib/contas-receber/validacao";
+import { obterOuCriarIdentificadorDispositivo } from "@/services/offline/configuracao-local.service";
 
 const FORMAS = [
   { valor: "dinheiro", rotulo: "Dinheiro" },
@@ -50,11 +51,14 @@ export function RegistrarPagamentoModal({
   }
 
   async function confirmarComPin(pin: string) {
+    // O recebimento só entra no caixa se houver caixa aberto NESTE terminal (decisão do servidor).
+    const terminalId = await obterOuCriarIdentificadorDispositivo().catch(() => null);
     const resultado = await registrarPagamentoAction(
       contaReceberId,
       { valor, formaPagamento, observacoes },
       saldoAtual,
-      pin
+      pin,
+      terminalId
     );
 
     if (!resultado.sucesso) {
@@ -63,7 +67,10 @@ export function RegistrarPagamentoModal({
 
     setValor(0);
     setObservacoes("");
-    mostrar("success", "Pagamento registrado.");
+    mostrar(
+      "success",
+      resultado.lancadoNoCaixa ? "Pagamento registrado e lançado no caixa." : "Pagamento registrado (sem caixa aberto neste terminal: não entrou no caixa)."
+    );
     onSucesso();
   }
 

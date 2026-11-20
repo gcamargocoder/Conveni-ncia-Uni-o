@@ -22,6 +22,8 @@ import {
   DatabaseBackup,
   UserCog,
   ClipboardCheck,
+  WalletCards,
+  Landmark,
   ChevronLeft,
   ChevronRight,
   X,
@@ -47,6 +49,7 @@ const GRUPOS: GrupoMenu[] = [
     rotulo: "Operação diária",
     itens: [
       { href: "/pdv", titulo: "Venda", icone: ShoppingCart, cor: "text-teal-500" },
+      { href: "/caixa", titulo: "Caixa", icone: WalletCards, cor: "text-teal-600" },
       { href: "/estoque", titulo: "Estoque", icone: Boxes, cor: "text-emerald-500" },
       { href: "/contas-receber", titulo: "Contas a Receber", icone: Receipt, cor: "text-amber-500" },
     ],
@@ -74,6 +77,7 @@ const GRUPOS: GrupoMenu[] = [
   {
     rotulo: "Administração",
     itens: [
+      { href: "/caixa/historico", titulo: "Caixas (histórico)", icone: Landmark, cor: "text-emerald-600", somenteAdmin: true },
       { href: "/vendas-revisao", titulo: "Vendas em revisão", icone: ClipboardCheck, cor: "text-rose-500", somenteAdmin: true },
       { href: "/usuarios", titulo: "Usuários", icone: UserCog, cor: "text-violet-500", somenteAdmin: true },
     ],
@@ -155,7 +159,7 @@ export function Sidebar({ colapsada, onToggleColapsar, abertaMobile, onFecharMob
               <div className="flex flex-col gap-0.5">
                 {grupo.itens.map((item) => {
                   const Icone = item.icone;
-                  const ativo = pathname?.startsWith(item.href) ?? false;
+                  const ativo = item.href === "/caixa" ? pathname === "/caixa" : (pathname?.startsWith(item.href) ?? false);
                   return (
                     <Link
                       key={item.href}

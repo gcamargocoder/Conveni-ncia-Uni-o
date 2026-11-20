@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { processarFilaSincronizacao } from "../worker-sincronizacao.service";
 import { registrarVendaLocal } from "../vendas-local.service";
 import { getOfflineDB } from "../db";
+import { prepararCaixaDeTeste } from "./caixa-fixture";
 import { ItemCarrinho } from "@/lib/vendas/carrinho";
 
 /**
@@ -20,6 +21,7 @@ beforeEach(async () => {
     db.auditoria_local.clear(),
     db.configuracoes_local.clear(),
   ]);
+  await prepararCaixaDeTeste();
   await db.estoque_local.put({ produto_id: "p1", quantidade_atual: 1000, estoque_minimo: 0, updated_at: "" });
 });
 

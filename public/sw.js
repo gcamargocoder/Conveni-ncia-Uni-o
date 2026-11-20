@@ -30,7 +30,7 @@ async function precarregar(cache) {
 // Únicas páginas (documentos HTML) que podem ser guardadas e servidas offline. O HTML delas não traz
 // dados do negócio: o catálogo, o carrinho e a fila vêm do IndexedDB. Qualquer outra rota offline
 // cai na tela de fallback estática.
-const PAGINAS_OFFLINE = ["/pdv", "/pin", "/sincronizacao"];
+const PAGINAS_OFFLINE = ["/pdv", "/pin", "/sincronizacao", "/caixa"];
 
 // O HTML que vai para o cache NUNCA é o que o usuário recebeu: é uma "cópia neutra", pedida à parte com
 // este cabeçalho, em que o servidor omite nome, e-mail, papel, id e validade da sessão (app/layout.tsx).

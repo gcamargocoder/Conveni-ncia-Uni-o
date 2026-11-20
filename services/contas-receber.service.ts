@@ -4,6 +4,8 @@ import { executar } from "./prisma/query-helpers";
 import { buscarCliente } from "./clientes.service";
 import { ContaReceber, ContaReceberComCliente, Recebimento, StatusConta } from "@/types/conta-receber";
 import { Cliente } from "@/types/cliente";
+import { lancarRecebimentoNoCaixa } from "./caixa.service";
+import { formaOk } from "@/lib/caixa/validacao";
 import { hojeLocal, inicioDoDiaLocal, inicioDoMesLocal } from "@/lib/utils/fuso";
 
 const LIMITE_LISTAGEM = 500;
@@ -100,11 +102,17 @@ export interface DadosPagamento {
   formaPagamento: string;
   funcionarioId: string;
   observacoes?: string | null;
+  /** Login autenticado que registrou (auditoria do caixa). */
+  usuarioId?: string | null;
+  /** Terminal em que o dinheiro foi recebido: se houver caixa aberto nele, o recebimento entra no caixa. */
+  terminalId?: string | null;
 }
 
 export interface ResultadoPagamento {
   saldoAtual: number;
   status: StatusConta;
+  /** true se o recebimento entrou num caixa aberto; false = registrado só na conta (sem caixa aberto no terminal). */
+  lancadoNoCaixa: boolean;
 }
 
 export async function registrarPagamento(dados: DadosPagamento): Promise<ResultadoPagamento> {
@@ -122,7 +130,7 @@ export async function registrarPagamento(dados: DadosPagamento): Promise<Resulta
         if (valor.lte(0)) throw new Error("O valor do pagamento deve ser maior que zero.");
         if (valor.gt(conta.saldo_atual)) throw new Error("O valor do pagamento é maior que o saldo da conta.");
 
-        await tx.recebimento.create({
+        const recebimento = await tx.recebimento.create({
           data: {
             conta_receber_id: dados.contaReceberId,
             valor,
@@ -139,7 +147,20 @@ export async function registrarPagamento(dados: DadosPagamento): Promise<Resulta
           data: { saldo_atual: novoSaldo, status },
         });
 
-        return { saldoAtual: novoSaldo, status };
+        let lancadoNoCaixa = false;
+        if (dados.terminalId && formaOk(dados.formaPagamento)) {
+          lancadoNoCaixa = await lancarRecebimentoNoCaixa(tx, {
+            recebimento_id: recebimento.id,
+            terminal_id: dados.terminalId,
+            valor_centavos: valor.mul(100).toDecimalPlaces(0).toNumber(),
+            forma: dados.formaPagamento,
+            funcionario_id: dados.funcionarioId,
+            usuario_id: dados.usuarioId ?? null,
+            descricao: "Recebimento de conta a receber",
+          });
+        }
+
+        return { saldoAtual: novoSaldo, status, lancadoNoCaixa };
       }),
     "Erro ao registrar pagamento"
   );

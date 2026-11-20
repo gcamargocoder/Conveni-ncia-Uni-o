@@ -11,6 +11,7 @@ const ROTULOS_PAGAMENTO: Record<string, string> = {
   credito: "Cartão de Crédito",
   pix: "PIX",
   fiado: "Fiado",
+  misto: "Pagamento dividido",
 };
 
 const ENDERECO_CONVENIENCIA = "";
@@ -117,6 +118,17 @@ function ConteudoCupom({ venda }: ConteudoCupomProps) {
         <span>Forma de pagamento:</span>
         <span>{ROTULOS_PAGAMENTO[venda.forma_pagamento] ?? venda.forma_pagamento}</span>
       </div>
+
+      {venda.pagamentos && venda.pagamentos.length > 1 && (
+        <div className="flex flex-col gap-0.5 text-xs mt-1">
+          {venda.pagamentos.map((p, i) => (
+            <div key={i} className="flex justify-between">
+              <span>{ROTULOS_PAGAMENTO[p.forma] ?? p.forma}</span>
+              <span>R$ {p.valor.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {venda.forma_pagamento === "dinheiro" && venda.valor_recebido != null && (
         <div className="flex flex-col gap-0.5 text-xs mt-1">

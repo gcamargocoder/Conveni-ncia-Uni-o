@@ -3,11 +3,17 @@
 import { verificarAcesso } from "@/lib/auth/servidor";
 import { processarVendaRecebida } from "@/services/vendas-sincronizadas.service";
 import { FormaPagamento } from "@/types/venda";
+import type { PagamentoVenda } from "@/lib/caixa/validacao";
 
 export interface PayloadVendaFila {
   funcionario_id: string;
-  forma_pagamento: FormaPagamento;
+  forma_pagamento: FormaPagamento | "misto";
   total: number;
+  /** Caixa (terminal) da venda e o detalhe de cada forma de pagamento (pagamento dividido). */
+  caixa_id?: string | null;
+  pagamentos?: PagamentoVenda[];
+  criado_em?: string;
+  origem?: "online" | "offline";
   dispositivo?: string;
   terminal?: string;
   itens: { produto_id: string; quantidade: number; preco_unitario: number }[];
@@ -30,6 +36,8 @@ export interface ResultadoSincronizarVenda {
   /** A sessão do usuário expirou: a venda continua na fila local e será reenviada após novo login. */
   requerLogin?: boolean;
   retida?: DestinoRetido;
+  /** O caixa da venda ainda não foi sincronizado: a venda segue pendente e é reenviada depois (sem contar falha). */
+  aguardandoCaixa?: boolean;
   /** Motivos legíveis, quando retida. */
   motivos?: string[];
 }
@@ -56,6 +64,8 @@ export async function sincronizarVendaAction(
         };
       case "rejeitada":
         return { sucesso: false, retida: "rejeitada", erro: resultado.observacao ?? "Venda rejeitada por um administrador." };
+      case "aguardando_caixa":
+        return { sucesso: false, aguardandoCaixa: true, erro: "Aguardando a sincronização do caixa desta venda." };
       case "invalida":
         return {
           sucesso: false,

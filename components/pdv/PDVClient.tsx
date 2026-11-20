@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Banknote, Smartphone, CreditCard, Landmark, HandCoins, ShoppingCart, User, X, Search } from "lucide-react";
+import Link from "next/link";
+import { Banknote, Smartphone, CreditCard, Landmark, HandCoins, ShoppingCart, User, X, Search, Split, Lock } from "lucide-react";
+import { Alert } from "@/components/ui/Alert";
+import { StatusCaixaBadge } from "@/components/caixa/StatusCaixaBadge";
+import { CamposCartao, CARTAO_VAZIO, PagamentoDividido, cartaoParaDados, pagamentosDasLinhas, type CartaoForm, type LinhaPagamento } from "@/components/pdv/PagamentoDividido";
+import { useCaixaLocal } from "@/hooks/useCaixaLocal";
+import { formatarCentavos } from "@/lib/caixa/calculo";
+import { totalEmCentavos } from "@/lib/vendas/validacao-sincronizacao";
+import { validarPagamentosVenda, type PagamentoVenda } from "@/lib/caixa/validacao";
+import { statusDoCaixaLocal } from "@/services/offline/caixa-local.service";
 import { ProdutoBusca } from "@/components/pdv/ProdutoBusca";
 import { CarrinhoView } from "@/components/pdv/CarrinhoView";
 import { PinInput } from "@/components/auth/PinInput";
@@ -47,11 +56,25 @@ export function PDVClient() {
   const [pedindoCancelamento, setPedindoCancelamento] = useState(false);
   const [pendenciaEstoque, setPendenciaEstoque] = useState<PendenciaEstoqueComProduto | null>(null);
   const [ultimaVendaLocal, setUltimaVendaLocal] = useState<VendaCompleta | null>(null);
+  const [dividir, setDividir] = useState(false);
+  const [linhas, setLinhas] = useState<LinhaPagamento[]>([]);
+  const [cartaoUnico, setCartaoUnico] = useState<CartaoForm>(CARTAO_VAZIO);
   const carregouCarrinhoInicial = useRef(false);
   const { mostrar } = useToast();
+  const estadoCaixa = useCaixaLocal();
+  const caixaAberto = estadoCaixa.caixa;
+  const caixaBloqueado = !caixaAberto || Boolean(caixaAberto.conflito);
 
   const total = calcularTotal(carrinho);
-  const fiadoSemCliente = formaPagamento === "fiado" && !clienteSelecionado;
+  const totalCentavos = totalEmCentavos(carrinho);
+  // Pagamento da venda: uma forma com o total, ou o pagamento dividido (cada forma individualmente).
+  const pagamentosVenda: PagamentoVenda[] | null = dividir
+    ? pagamentosDasLinhas(linhas)
+    : [{ forma: formaPagamento, valor_centavos: totalCentavos, cartao: cartaoParaDados(formaPagamento, cartaoUnico) }];
+  const errosPagamento = pagamentosVenda ? validarPagamentosVenda(pagamentosVenda, totalCentavos) : ["Informe o valor de cada forma de pagamento."];
+  const pagamentoInvalido = carrinho.length > 0 && errosPagamento.length > 0;
+  const temFiado = pagamentosVenda?.some((p) => p.forma === "fiado") ?? false;
+  const fiadoSemCliente = temFiado && !clienteSelecionado;
   const valorRecebidoNumero = Number(valorRecebido.replace(",", ".")) || 0;
   const troco = valorRecebidoNumero - total;
 
@@ -66,6 +89,16 @@ export function PDVClient() {
     if (!carregouCarrinhoInicial.current) return;
     salvarCarrinhoLocal(carrinho);
   }, [carrinho]);
+
+  function alternarDivisao() {
+    if (!dividir) {
+      setLinhas([
+        { forma: formaPagamento, valor: "", cartao: CARTAO_VAZIO },
+        { forma: "dinheiro", valor: "", cartao: CARTAO_VAZIO },
+      ]);
+    }
+    setDividir(!dividir);
+  }
 
   function aoTrocarFormaPagamento(forma: FormaPagamento) {
     setFormaPagamento(forma);
@@ -92,9 +125,11 @@ export function PDVClient() {
       throw new Error(auth.erro ?? "PIN inválido.");
     }
 
+    if (!pagamentosVenda || errosPagamento.length > 0) throw new Error(errosPagamento[0] ?? "Pagamento inválido.");
     const resultado = await registrarVendaLocal({
       itens: carrinho,
-      formaPagamento,
+      formaPagamento: pagamentosVenda.length > 1 ? pagamentosVenda[0].forma : formaPagamento,
+      pagamentos: pagamentosVenda,
       funcionarioId: auth.funcionario.id,
       funcionarioNome: auth.funcionario.nome,
       clienteId: clienteSelecionado?.id ?? null,
@@ -108,7 +143,8 @@ export function PDVClient() {
       id: resultado.vendaId,
       created_at: new Date().toISOString(),
       total,
-      forma_pagamento: formaPagamento,
+      forma_pagamento: pagamentosVenda.length > 1 ? "misto" : pagamentosVenda[0].forma,
+      pagamentos: pagamentosVenda.length > 1 ? pagamentosVenda.map((p) => ({ forma: p.forma, valor: p.valor_centavos / 100 })) : undefined,
       cancelada: false,
       funcionario_nome: auth.funcionario.nome,
       cliente_nome: clienteSelecionado?.nome ?? null,
@@ -125,6 +161,9 @@ export function PDVClient() {
     setClienteSelecionado(null);
     setFormaPagamento("dinheiro");
     setValorRecebido("");
+    setDividir(false);
+    setLinhas([]);
+    setCartaoUnico(CARTAO_VAZIO);
     mostrar("success", "Venda salva localmente.");
 
     processarFilaSincronizacao();
@@ -227,6 +266,27 @@ export function PDVClient() {
         <p className="text-slate-500 text-sm">Realizar venda</p>
       </header>
 
+      {estadoCaixa.carregando ? null : caixaBloqueado ? (
+        <Alert variante="warning" titulo={caixaAberto ? "Caixa em conflito" : "Caixa fechado"} className="mb-4">
+          {caixaAberto
+            ? "Há um conflito de sincronização neste caixa. Novas vendas ficam bloqueadas até a resolução pelo administrador."
+            : "Abra o caixa deste terminal para registrar vendas."}{" "}
+          <Link href="/caixa" className="underline font-semibold">
+            Ir para o Caixa
+          </Link>
+        </Alert>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">
+          <StatusCaixaBadge status={statusDoCaixaLocal(caixaAberto)} />
+          <span>Dinheiro esperado: {formatarCentavos(estadoCaixa.resumo?.dinheiro.saldo_esperado_centavos ?? 0)}</span>
+          {!caixaAberto.abertura_sincronizada && <span className="text-warning-700">abertura aguardando sincronização</span>}
+          {estadoCaixa.pendencias.aguardando > 0 && <span className="text-warning-700">{estadoCaixa.pendencias.aguardando} operação(ões) a enviar</span>}
+          <Link href="/caixa" className="ml-auto inline-flex items-center gap-1 text-brand-700 font-semibold">
+            <Lock className="w-3.5 h-3.5" /> Caixa
+          </Link>
+        </div>
+      )}
+
       <Card className="mb-4">
         <p className="text-xs font-medium text-slate-500 mb-2">
           Cliente na nota {formaPagamento === "fiado" ? "(obrigatório para fiado)" : "(opcional)"}
@@ -285,7 +345,16 @@ export function PDVClient() {
             </div>
 
             <div>
-              <p className="text-xs font-medium text-slate-500 mb-2">Forma de pagamento</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500">Forma de pagamento</p>
+                <button className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700" onClick={alternarDivisao}>
+                  <Split className="w-3.5 h-3.5" />
+                  {dividir ? "Pagamento único" : "Dividir pagamento"}
+                </button>
+              </div>
+              {dividir ? (
+                <PagamentoDividido linhas={linhas} onChange={setLinhas} totalCentavos={totalCentavos} />
+              ) : (
               <div className="grid grid-cols-2 gap-2">
                 {FORMAS.map((f) => {
                   const Icone = f.icone;
@@ -306,9 +375,11 @@ export function PDVClient() {
                   );
                 })}
               </div>
+              )}
+              {!dividir && <div className="mt-2"><CamposCartao forma={formaPagamento} valor={cartaoUnico} onChange={setCartaoUnico} /></div>}
             </div>
 
-            {formaPagamento === "dinheiro" && (
+            {!dividir && formaPagamento === "dinheiro" && (
               <div className="flex flex-col gap-1.5">
                 <Input
                   rotulo="Valor recebido em dinheiro (opcional)"
@@ -334,7 +405,7 @@ export function PDVClient() {
             <Button
               tamanho="lg"
               larguraTotal
-              disabled={carrinho.length === 0 || fiadoSemCliente}
+              disabled={carrinho.length === 0 || fiadoSemCliente || caixaBloqueado || pagamentoInvalido}
               onClick={() => setPedindoPin(true)}
             >
               Finalizar venda
