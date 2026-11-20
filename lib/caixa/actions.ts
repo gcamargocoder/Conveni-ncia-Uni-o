@@ -28,12 +28,12 @@ import {
   detalheCaixa,
   listarCaixas,
   listarTerminais,
+  lerRecebimentosDoCaixa,
   type DadosRelatorioCaixa,
   type DetalheCaixa,
   type CaixaListado,
   type FiltroCaixas,
 } from "@/services/caixa-consulta.service";
-import { prisma } from "@/services/prisma/client";
 import { origemOk, textoLimpo, uuidOk } from "@/lib/caixa/validacao";
 
 /**
@@ -220,30 +220,27 @@ export interface RecebimentoDoCaixa {
 /**
  * Leitura: os recebimentos de contas a receber que o servidor lançou no caixa de ESTE terminal. Só existem online (a
  * conta é paga no servidor) e fazem parte do saldo esperado; sem eles o aparelho calcularia o dinheiro esperado a menos.
- * Só devolve se o caixa pertencer ao terminal informado.
+ * Só devolve se o caixa pertencer ao terminal informado E o usuário da sessão for administrador ou tiver atuado nesse caixa
+ * (ver `lerRecebimentosDoCaixa`). Qualquer recusa devolve a mesma resposta vazia.
  */
 export async function recebimentosDoCaixaAction(caixaId: string, terminalId: string): Promise<{ sucesso: boolean; itens: RecebimentoDoCaixa[] }> {
   const acesso = await verificarAcesso();
-  if (!acesso.ok || !uuidOk(caixaId) || !textoLimpo(terminalId, 80)) return { sucesso: false, itens: [] };
-  const caixa = await prisma.caixa.findUnique({ where: { id: caixaId }, select: { terminal_id: true } });
-  if (!caixa || caixa.terminal_id !== terminalId) return { sucesso: false, itens: [] };
-  const linhas = await prisma.movimentoCaixa.findMany({
-    where: { caixa_id: caixaId, tipo: "recebimento_conta" },
-    orderBy: { ocorrido_em: "asc" },
-    select: { id: true, forma_pagamento: true, valor_centavos: true, funcionario_id: true, descricao: true, ocorrido_em: true, funcionario: { select: { nome: true } } },
-  });
-  return {
-    sucesso: true,
-    itens: linhas.map((l) => ({
-      id: l.id,
-      forma_pagamento: l.forma_pagamento,
-      valor_centavos: l.valor_centavos,
-      funcionario_id: l.funcionario_id,
-      funcionario_nome: l.funcionario.nome,
-      descricao: l.descricao,
-      ocorrido_em: l.ocorrido_em.toISOString(),
-    })),
-  };
+  if (!acesso.ok) return { sucesso: false, itens: [] };
+  // Identificadores vindos do cliente só são aceitos na forma esperada; e NÃO bastam: o vínculo com o caixa é conferido no banco.
+  if (typeof caixaId !== "string" || typeof terminalId !== "string" || !uuidOk(caixaId) || !textoLimpo(terminalId, 80)) {
+    return { sucesso: false, itens: [] };
+  }
+  try {
+    const itens = await lerRecebimentosDoCaixa({
+      caixaId,
+      terminalId,
+      usuarioId: acesso.sessao.usuario.id,
+      admin: acesso.sessao.usuario.papel === "admin",
+    });
+    return itens ? { sucesso: true, itens } : { sucesso: false, itens: [] };
+  } catch {
+    return { sucesso: false, itens: [] };
+  }
 }
 
 export async function listarConflitosCaixaAction(status: "pendente" | "tratado") {

@@ -225,3 +225,66 @@ export async function listarTerminais(): Promise<{ terminal_id: string; terminal
     grupos.map((g) => ({ terminal_id: g.terminal_id, terminal_papel: papel.get(g.terminal_id) ?? null, ultimo_uso: g._max.aberto_em }))
   );
 }
+
+// ---------------------------------------------------------------------------
+// Recebimentos de contas a receber lançados no caixa (leitura pelo aparelho)
+// ---------------------------------------------------------------------------
+
+export interface RecebimentoLido {
+  id: string;
+  forma_pagamento: string;
+  valor_centavos: number;
+  funcionario_id: string;
+  funcionario_nome: string;
+  descricao: string | null;
+  ocorrido_em: string;
+}
+
+/**
+ * Lê os recebimentos de conta lançados num caixa, SE o chamador puder ver esse caixa. Devolve null em qualquer recusa
+ * (caixa inexistente, terminal que não confere, usuário sem vínculo) — sem distinguir o motivo, para não servir de sonda
+ * de identificadores.
+ *
+ * Vínculos que o modelo atual consegue PROVAR (não há tenant, e a sessão não é presa a um terminal):
+ *  - o caixa pertence ao terminal informado (`caixas.terminal_id`);
+ *  - administrador: pode ver qualquer caixa (as demais telas administrativas já permitem);
+ *  - demais usuários: só se tiverem atuado NESTE caixa — abriram, fecharam ou lançaram algum movimento nele
+ *    (`caixas.aberto_por_usuario_id`, `fechado_por_usuario_id`, `movimentos_caixa.usuario_id`).
+ * Limitação: o terminal é um identificador gerado no navegador e a sessão não registra o terminal, então "este login está
+ * fisicamente neste terminal" não é comprovável; o vínculo acima é o mais forte que os dados reais permitem.
+ */
+export async function lerRecebimentosDoCaixa(params: {
+  caixaId: string;
+  terminalId: string;
+  usuarioId: string;
+  admin: boolean;
+}): Promise<RecebimentoLido[] | null> {
+  const caixa = await prisma.caixa.findUnique({
+    where: { id: params.caixaId },
+    select: { terminal_id: true, aberto_por_usuario_id: true, fechado_por_usuario_id: true },
+  });
+  if (!caixa || caixa.terminal_id !== params.terminalId) return null;
+
+  if (!params.admin) {
+    const vinculado =
+      caixa.aberto_por_usuario_id === params.usuarioId ||
+      caixa.fechado_por_usuario_id === params.usuarioId ||
+      (await prisma.movimentoCaixa.count({ where: { caixa_id: params.caixaId, usuario_id: params.usuarioId } })) > 0;
+    if (!vinculado) return null;
+  }
+
+  const linhas = await prisma.movimentoCaixa.findMany({
+    where: { caixa_id: params.caixaId, tipo: "recebimento_conta" },
+    orderBy: { ocorrido_em: "asc" },
+    select: { id: true, forma_pagamento: true, valor_centavos: true, funcionario_id: true, descricao: true, ocorrido_em: true, funcionario: { select: { nome: true } } },
+  });
+  return linhas.map((l) => ({
+    id: l.id,
+    forma_pagamento: l.forma_pagamento,
+    valor_centavos: l.valor_centavos,
+    funcionario_id: l.funcionario_id,
+    funcionario_nome: l.funcionario.nome,
+    descricao: l.descricao,
+    ocorrido_em: l.ocorrido_em.toISOString(),
+  }));
+}

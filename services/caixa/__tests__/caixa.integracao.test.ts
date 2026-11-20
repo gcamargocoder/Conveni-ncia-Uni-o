@@ -370,6 +370,91 @@ describe("vendas lançadas no caixa", () => {
     expect(await recebimentosDoCaixaAction(caixa, TERMINAL)).toEqual({ sucesso: false, itens: [] });
   });
 
+  describe("SEC-01: autorização da consulta de recebimentos do caixa", () => {
+    const VAZIO = { sucesso: false, itens: [] };
+
+    async function caixaComRecebimento() {
+      const caixa = await caixaAberto();
+      const id = randomUUID();
+      await sincronizarVendaAction(id, payload(caixa, { forma_pagamento: "fiado", cliente_id: ids.cliente }));
+      const conta = await prisma.contaReceber.findFirstOrThrow({ where: { venda_id: id } });
+      await registrarPagamento({ contaReceberId: conta.id, valor: 4, formaPagamento: "dinheiro", funcionarioId: ids.gerente, usuarioId: ids.operador, terminalId: TERMINAL });
+      return caixa;
+    }
+
+    it("quem abriu o caixa lê; administrador lê; login SEM vínculo com o caixa é recusado com a mesma resposta vazia", async () => {
+      const caixa = await caixaComRecebimento();
+      expect((await recebimentosDoCaixaAction(caixa, TERMINAL)).itens).toHaveLength(1);
+
+      await criarUsuario({ nome: "Outro Operador", email: "op2@loja.com", senha: SENHA, papel: "operador" });
+      await entrarComo("op2@loja.com");
+      expect(await recebimentosDoCaixaAction(caixa, TERMINAL)).toEqual(VAZIO); // sem vínculo com o caixa
+      expect(await recebimentosDoCaixaAction(randomUUID(), TERMINAL)).toEqual(VAZIO); // inexistente: indistinguível
+
+      await entrarComo("admin@loja.com");
+      expect((await recebimentosDoCaixaAction(caixa, TERMINAL)).itens).toHaveLength(1);
+    });
+
+    it("o vínculo vem do banco: depois de lançar um movimento no caixa, o outro login passa a ler", async () => {
+      const caixa = await caixaComRecebimento();
+      const op2 = await criarUsuario({ nome: "Outro Operador", email: "op2@loja.com", senha: SENHA, papel: "operador" });
+      await entrarComo("op2@loja.com");
+      expect(await recebimentosDoCaixaAction(caixa, TERMINAL)).toEqual(VAZIO);
+      expect((await sincronizarVendaAction(randomUUID(), payload(caixa))).sucesso).toBe(true);
+      expect(await prisma.movimentoCaixa.count({ where: { caixa_id: caixa, usuario_id: op2.id } })).toBeGreaterThan(0);
+      expect((await recebimentosDoCaixaAction(caixa, TERMINAL)).itens).toHaveLength(1);
+    });
+
+    it("terminal diferente e caixa de OUTRO terminal são recusados (mesmo para quem opera o outro caixa)", async () => {
+      const caixa = await caixaComRecebimento();
+      const outro = (await abrir({ terminal: OUTRO_TERMINAL, fundo: 5000 })).id; // mesmo login operando o terminal B
+      expect(await recebimentosDoCaixaAction(caixa, OUTRO_TERMINAL)).toEqual(VAZIO); // caixa A com terminal B
+      expect(await recebimentosDoCaixaAction(outro, TERMINAL)).toEqual(VAZIO); // caixa B com terminal A
+      expect((await recebimentosDoCaixaAction(outro, OUTRO_TERMINAL)).sucesso).toBe(true); // o par correto funciona
+    });
+
+    it("identificadores manipulados nunca vazam dados nem quebram", async () => {
+      const caixa = await caixaComRecebimento();
+      const hostis: [unknown, unknown][] = [
+        [caixa.toUpperCase(), TERMINAL + " "],
+        [`${caixa}' OR '1'='1`, TERMINAL],
+        [caixa, "terminal-A' OR 1=1 --"],
+        [caixa, ""],
+        [caixa, "x".repeat(500)],
+        ["../../etc/passwd", TERMINAL],
+        [[caixa], TERMINAL],
+        [{ id: caixa }, { terminal: TERMINAL }],
+        [null, null],
+        [undefined, undefined],
+        [123, 456],
+        ["00000000-0000-0000-0000-000000000000", TERMINAL],
+      ];
+      for (const [c, t] of hostis) {
+        expect(await recebimentosDoCaixaAction(c as string, t as string)).toEqual(VAZIO);
+      }
+      // o par legítimo continua funcionando depois das tentativas
+      expect((await recebimentosDoCaixaAction(caixa, TERMINAL)).itens).toHaveLength(1);
+    });
+
+    it("sessão inexistente, inválida ou expirada não lê nada", async () => {
+      const caixa = await caixaComRecebimento();
+      ambiente.cookies.set(COOKIE_SESSAO, "token-inventado");
+      expect(await recebimentosDoCaixaAction(caixa, TERMINAL)).toEqual(VAZIO);
+
+      await entrarComo("op@loja.com");
+      expect((await recebimentosDoCaixaAction(caixa, TERMINAL)).sucesso).toBe(true);
+      await prisma.sessao.updateMany({ data: { expira_em: new Date(Date.now() - 60_000), expira_absoluta_em: new Date(Date.now() - 60_000) } });
+      expect(await recebimentosDoCaixaAction(caixa, TERMINAL)).toEqual(VAZIO);
+    });
+
+    it("a conferência do caixa continua somando os recebimentos para quem tem acesso", async () => {
+      const caixa = await caixaComRecebimento();
+      const lidos = await recebimentosDoCaixaAction(caixa, TERMINAL);
+      expect(lidos.itens.reduce((t, i) => t + i.valor_centavos, 0)).toBe(400);
+      expect((await resumoDoCaixa(caixa))!.dinheiro.recebimentos_conta_centavos).toBe(400);
+    });
+  });
+
   it("reenvio da MESMA venda (resposta perdida): um único conjunto de lançamentos", async () => {
     const caixa = await caixaAberto();
     const id = randomUUID();
