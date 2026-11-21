@@ -6,6 +6,8 @@ import {
   type EntradaPaginaCatalogo,
 } from "./catalogo-paginas";
 
+/** Vendas pendentes de um aparelho: dezenas na prática; o teto só impede um corpo gigante. */
+export const MAX_VENDAS_LOCAIS = 2000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_MICROS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/;
 
@@ -48,5 +50,14 @@ export function validarEntradaPagina(entrada: unknown): EntradaPaginaCatalogo & 
     tamanho = e.tamanho;
   }
 
-  return { entidade: e.entidade as EntidadeCatalogo, desde, ate, apos, tamanho };
+  let vendas_locais: string[] | undefined;
+  if (e.vendas_locais != null) {
+    if (e.entidade !== "estoque") throw new Error("Parâmetro inválido: vendas_locais.");
+    if (!Array.isArray(e.vendas_locais) || e.vendas_locais.length > MAX_VENDAS_LOCAIS || !e.vendas_locais.every((v) => typeof v === "string" && UUID.test(v))) {
+      throw new Error("Parâmetro inválido: vendas_locais.");
+    }
+    vendas_locais = e.vendas_locais as string[];
+  }
+
+  return { entidade: e.entidade as EntidadeCatalogo, desde, ate, apos, tamanho, vendas_locais };
 }

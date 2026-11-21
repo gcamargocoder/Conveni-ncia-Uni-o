@@ -30,6 +30,8 @@ const TABELA: Record<TabelaComData, Prisma.Sql> = {
   funcionarios: Prisma.sql`funcionarios`,
 };
 
+type ClienteSql = Pick<typeof prisma, "$queryRaw">;
+
 export interface JanelaCatalogo {
   desde: string | null;
   ate: string;
@@ -37,12 +39,30 @@ export interface JanelaCatalogo {
 }
 
 /**
- * Relógio do BANCO (não do app): `updated_at` e `created_at` são carimbados pelo banco/Prisma, e o app e o banco
- * podem ter relógios levemente diferentes. `clock_timestamp()` (não `now()`) dá o instante real da consulta.
+ * Instantes da rodada, do relógio do BANCO (`updated_at`/`created_at` são carimbados pelo banco/Prisma e os relógios
+ * podem diferir; `clock_timestamp()`, e não `now()`, dá o instante real da consulta).
+ *
+ * - `ate`: limite superior da janela desta rodada (agora).
+ * - `marca`: o cursor que o aparelho grava ao concluir = `ate` recuado até o INÍCIO da transação mais antiga ainda
+ *   aberta no banco agora. Por quê: o `created_at` de um INSERT é o `now()` do começo da transação, e o `updated_at`
+ *   de um UPDATE é carimbado no meio dela. Uma transação aberta há 20 minutos confirma com data de 20 minutos atrás;
+ *   com cursor só por tempo (mesmo com margem) a linha sumiria para sempre. Com o horizonte, nenhuma transação que
+ *   estava aberta aqui consegue confirmar depois com data anterior à marca — por mais que demore. Se a transação
+ *   nunca fechar, a marca fica parada e a janela só cresce (mais releitura idempotente), nunca perde.
+ *   O banco só mostra `xact_start` de outras conexões do MESMO papel (o do app, único que escreve).
  */
+export async function instantesDaRodada(): Promise<{ ate: string; marca: string }> {
+  const r = await prisma.$queryRaw<{ ate: string; marca: string }[]>`
+    SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC', ${FORMATO_ISO_US}) AS ate,
+           to_char(LEAST(clock_timestamp(), COALESCE(MIN(xact_start), clock_timestamp())) AT TIME ZONE 'UTC', ${FORMATO_ISO_US}) AS marca
+    FROM pg_stat_activity
+    WHERE datname = current_database() AND pid <> pg_backend_pid() AND backend_type = 'client backend' AND xact_start IS NOT NULL`;
+  return r[0];
+}
+
+/** @deprecated use instantesDaRodada (que também devolve a marca do cursor). */
 export async function instanteAtualDoBanco(): Promise<string> {
-  const r = await prisma.$queryRaw<{ t: string }[]>`SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC', ${FORMATO_ISO_US}) AS t`;
-  return r[0].t;
+  return (await instantesDaRodada()).ate;
 }
 
 function limitar(tamanho: number | undefined): number {
@@ -66,16 +86,16 @@ async function chavesComData(tabela: TabelaComData, j: JanelaCatalogo, tamanho: 
 }
 
 /** Ids de estoque a enviar: tudo (primeira vez) ou só produtos com movimentação/alteração na janela. */
-async function chavesEstoque(j: JanelaCatalogo, tamanho: number): Promise<{ id: string }[]> {
+async function chavesEstoque(db: ClienteSql, j: JanelaCatalogo, tamanho: number): Promise<{ id: string }[]> {
   const aposId = j.apos?.id ?? null;
   if (!j.desde) {
-    return prisma.$queryRaw<{ id: string }[]>`
+    return db.$queryRaw<{ id: string }[]>`
       SELECT produto_id::text AS id FROM estoque_atual
       WHERE (${aposId}::uuid IS NULL OR produto_id > ${aposId}::uuid)
       ORDER BY produto_id
       LIMIT ${tamanho + 1}`;
   }
-  return prisma.$queryRaw<{ id: string }[]>`
+  return db.$queryRaw<{ id: string }[]>`
     SELECT id::text AS id FROM (
       SELECT produto_id AS id FROM movimentacoes_estoque
        WHERE created_at >= ${j.desde}::timestamptz AND created_at <= ${j.ate}::timestamptz
@@ -107,19 +127,29 @@ function naOrdem<T extends { id: string }>(linhas: T[], ids: string[]): T[] {
 export async function lerPaginaCatalogo<E extends EntidadeCatalogo>(
   entidade: E,
   janela: JanelaCatalogo,
-  tamanhoPedido?: number
-): Promise<{ itens: ItensPorEntidade[E]; proximo: CursorPagina | null }> {
+  tamanhoPedido?: number,
+  vendasLocais?: string[]
+): Promise<{ itens: ItensPorEntidade[E]; proximo: CursorPagina | null; vendas_no_servidor?: string[] }> {
   const tamanho = limitar(tamanhoPedido);
-  return executar<{ itens: ItensPorEntidade[E]; proximo: CursorPagina | null }>(async () => {
+  return executar<{ itens: ItensPorEntidade[E]; proximo: CursorPagina | null; vendas_no_servidor?: string[] }>(async () => {
     if (entidade === "estoque") {
-      const { pagina, proximo } = recortar(await chavesEstoque(janela, tamanho), tamanho);
-      const ids = pagina.map((c) => c.id);
-      const itens = ids.length
-        ? await prisma.$queryRaw<ItensPorEntidade["estoque"]>`
-            SELECT produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual
-            FROM estoque_atual WHERE produto_id = ANY(${ids}::uuid[]) ORDER BY produto_id`
-        : [];
-      return { itens: itens as ItensPorEntidade[E], proximo };
+      // Uma transação REPEATABLE READ: os saldos e a checagem das vendas veem o MESMO instante do banco.
+      return prisma.$transaction(
+        async (tx) => {
+          const { pagina, proximo } = recortar(await chavesEstoque(tx, janela, tamanho), tamanho);
+          const ids = pagina.map((c) => c.id);
+          const itens = ids.length
+            ? await tx.$queryRaw<ItensPorEntidade["estoque"]>`
+                SELECT produto_id, nome, codigo_barras, categoria_nome, fornecedor_nome, estoque_minimo, quantidade_atual
+                FROM estoque_atual WHERE produto_id = ANY(${ids}::uuid[]) ORDER BY produto_id`
+            : [];
+          const vendas = vendasLocais?.length
+            ? (await tx.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM vendas WHERE id = ANY(${vendasLocais}::uuid[])`).map((v) => v.id)
+            : undefined;
+          return { itens: itens as ItensPorEntidade[E], proximo, vendas_no_servidor: vendas };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }
+      );
     }
 
     const tabela = entidade as TabelaComData;

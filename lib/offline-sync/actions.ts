@@ -6,7 +6,7 @@ import { listarCategoriasAlteradasDesde } from "@/services/categorias.service";
 import { listarEstoqueAlteradoDesde } from "@/services/estoque.service";
 import { listarFuncionariosCatalogoDesde, listarCredenciaisPinOffline, type CredencialPinOffline } from "@/services/funcionarios.service";
 import { listarClientesAlteradosDesde } from "@/services/clientes.service";
-import { instanteAtualDoBanco, lerPaginaCatalogo } from "@/services/catalogo-sync.service";
+import { instantesDaRodada, lerPaginaCatalogo } from "@/services/catalogo-sync.service";
 import type { EntradaPaginaCatalogo, PaginaCatalogo } from "./catalogo-paginas";
 import { validarEntradaPagina } from "./validar-pagina";
 
@@ -52,9 +52,16 @@ export async function buscarPaginaCatalogoAction(entrada: EntradaPaginaCatalogo)
   const acesso = await verificarAcesso();
   if (!acesso.ok) throw new Error(acesso.erro);
   const v = validarEntradaPagina(entrada);
-  const ate = v.ate ?? (await instanteAtualDoBanco());
-  const { itens, proximo } = await lerPaginaCatalogo(v.entidade, { desde: v.desde, ate, apos: v.apos }, v.tamanho);
-  return { ate, itens, proximo } as PaginaCatalogo;
+  // Primeira página da rodada: o servidor fixa a janela (`ate`) e a marca do cursor (`marca`).
+  const instantes = v.ate ? null : await instantesDaRodada();
+  const ate = v.ate ?? (instantes as { ate: string }).ate;
+  const { itens, proximo, vendas_no_servidor } = await lerPaginaCatalogo(
+    v.entidade,
+    { desde: v.desde, ate, apos: v.apos },
+    v.tamanho,
+    v.vendas_locais
+  );
+  return { ate, marca: instantes?.marca, itens, proximo, vendas_no_servidor } as PaginaCatalogo;
 }
 
 export type ResultadoCredenciaisPinOffline =

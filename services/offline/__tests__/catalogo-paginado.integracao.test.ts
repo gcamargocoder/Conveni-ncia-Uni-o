@@ -17,7 +17,7 @@ const ctl = vi.hoisted(() => ({
 
 vi.mock("@/lib/offline-sync/actions", async () => {
   const { validarEntradaPagina } = await import("@/lib/offline-sync/validar-pagina");
-  const { instanteAtualDoBanco, lerPaginaCatalogo } = await import("@/services/catalogo-sync.service");
+  const { instantesDaRodada, lerPaginaCatalogo } = await import("@/services/catalogo-sync.service");
   return {
     buscarPaginaCatalogoAction: async (entrada: unknown) => {
       const v = validarEntradaPagina(entrada);
@@ -25,10 +25,11 @@ vi.mock("@/lib/offline-sync/actions", async () => {
       const n = ctl.chamadas.length;
       if (ctl.falharNaChamada === n) throw new Error("Failed to fetch");
       if (ctl.atrasoMs) await new Promise((r) => setTimeout(r, ctl.atrasoMs));
-      const ate = v.ate ?? (await instanteAtualDoBanco());
-      const { itens, proximo } = await lerPaginaCatalogo(v.entidade, { desde: v.desde, ate, apos: v.apos }, v.tamanho);
+      const instantes = v.ate ? null : await instantesDaRodada();
+      const ate = v.ate ?? (instantes as { ate: string }).ate;
+      const { itens, proximo, vendas_no_servidor } = await lerPaginaCatalogo(v.entidade, { desde: v.desde, ate, apos: v.apos }, v.tamanho, v.vendas_locais);
       if (ctl.aposPagina) await ctl.aposPagina(n);
-      return { ate, itens, proximo };
+      return { ate, marca: instantes?.marca, itens, proximo, vendas_no_servidor };
     },
     buscarCredenciaisPinOfflineAction: async () => ({ ok: true, credenciais: [] }),
   };
@@ -261,7 +262,9 @@ describe("falhas, retomada e repetição", () => {
     await criarProdutos(1300);
     ctl.falharNaChamada = 4;
     await sincronizarCatalogo();
-    const ateSalvo = JSON.parse((await obterConfiguracao(PROGRESSO)) as string).ate;
+    const salvo = JSON.parse((await obterConfiguracao(PROGRESSO)) as string);
+    const ateSalvo = salvo.ate;
+    const marcaSalva = salvo.marca;
 
     ctl.chamadas = [];
     ctl.falharNaChamada = null;
@@ -272,7 +275,7 @@ describe("falhas, retomada e repetição", () => {
     expect(ctl.chamadas[0].apos).not.toBeNull();
     expect(ctl.chamadas.every((c) => c.ate === ateSalvo)).toBe(true);
     expect(await idsLocais("produtos_local")).toEqual(await idsServidor("produto"));
-    expect(await obterConfiguracao(CARIMBO)).toBe(ateSalvo);
+    expect(await obterConfiguracao(CARIMBO)).toBe(marcaSalva); // o cursor é a marca da rodada (≤ ate), não o ate
     expect(await obterConfiguracao(PROGRESSO)).toBeUndefined();
   });
 

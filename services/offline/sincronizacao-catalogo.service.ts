@@ -4,13 +4,15 @@ import { registrarEventoSincronizacao } from "./auditoria-sincronizacao.service"
 import { buscarPaginaCatalogoAction, AlteracoesCatalogo } from "@/lib/offline-sync/actions";
 import {
   ENTIDADES_CATALOGO,
-  SOBREPOSICAO_MS,
+  AJUSTES_SINCRONIZACAO,
   TAMANHO_PAGINA_CATALOGO,
   type CursorPagina,
   type EntidadeCatalogo,
   type PaginaCatalogo,
 } from "@/lib/offline-sync/catalogo-paginas";
+import { MAX_VENDAS_LOCAIS } from "@/lib/offline-sync/validar-pagina";
 import { sincronizarCredenciaisPin } from "./credenciais-pin-local.service";
+import { adquirirTrava, type Trava } from "./trava-sincronizacao.service";
 
 const CHAVE_CARIMBO = "ultima_sincronizacao_catalogo";
 const CHAVE_ULTIMA_QTD = "ultima_qtd_produtos_sincronizados";
@@ -114,8 +116,10 @@ interface Progresso {
   v: 1;
   /** Início da janela desta rodada (null = completa). */
   desde: string | null;
-  /** Instante-limite fixado pelo servidor na primeira página; vira o cursor global ao concluir. */
+  /** Instante-limite fixado pelo servidor na primeira página. */
   ate: string | null;
+  /** Cursor que será gravado ao concluir (`ate` recuado até a transação aberta mais antiga; ver catalogo-sync.service). */
+  marca: string | null;
   cursores: Partial<Record<EntidadeCatalogo, CursorPagina>>;
   concluidas: EntidadeCatalogo[];
   contagens: Contagens;
@@ -129,7 +133,7 @@ async function lerProgresso(): Promise<Progresso | null> {
   try {
     const p = JSON.parse(bruto) as Progresso;
     if (p?.v !== 1 || !Array.isArray(p.concluidas) || typeof p.cursores !== "object") return null;
-    return { ...p, contagens: { ...ZERO, ...p.contagens } };
+    return { ...p, marca: p.marca ?? null, contagens: { ...ZERO, ...p.contagens } };
   } catch {
     return null; // progresso ilegível: recomeça a rodada (idempotente), nunca trava
   }
@@ -140,9 +144,9 @@ async function novoProgresso(): Promise<Progresso> {
   const versao = await obterConfiguracao(CHAVE_VERSAO);
   let desde: string | null = null;
   if (cursor && versao === VERSAO_PROTOCOLO && !Number.isNaN(Date.parse(cursor))) {
-    desde = new Date(Date.parse(cursor) - SOBREPOSICAO_MS).toISOString();
+    desde = new Date(Date.parse(cursor) - AJUSTES_SINCRONIZACAO.sobreposicaoMs).toISOString();
   }
-  return { v: 1, desde, ate: null, cursores: {}, concluidas: [], contagens: { ...ZERO } };
+  return { v: 1, desde, ate: null, marca: null, cursores: {}, concluidas: [], contagens: { ...ZERO } };
 }
 
 function paginaComoAlteracoes(entidade: EntidadeCatalogo, pagina: PaginaCatalogo): AlteracoesCatalogo {
@@ -150,17 +154,140 @@ function paginaComoAlteracoes(entidade: EntidadeCatalogo, pagina: PaginaCatalogo
   return { ...vazio, [entidade]: pagina.itens, timestampServidor: pagina.ate } as AlteracoesCatalogo;
 }
 
+/** Progresso depois de gravar `pagina` (função pura: não grava nada). */
+function avancar(p: Progresso, entidade: EntidadeCatalogo, pagina: PaginaCatalogo): Progresso {
+  const novo: Progresso = {
+    ...p,
+    ate: pagina.ate,
+    marca: p.marca ?? pagina.marca ?? pagina.ate,
+    cursores: { ...p.cursores },
+    concluidas: [...p.concluidas],
+    contagens: { ...p.contagens, [entidade]: p.contagens[entidade] + pagina.itens.length },
+  };
+  if (pagina.proximo) novo.cursores[entidade] = pagina.proximo;
+  else {
+    delete novo.cursores[entidade];
+    novo.concluidas.push(entidade);
+  }
+  return novo;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Estoque × vendas offline pendentes
+//
+// A venda feita offline baixa `estoque_local` na hora e entra na fila; o servidor só desconta quando a venda chega
+// (gatilho em itens_venda). O saldo que o servidor manda NÃO inclui as vendas ainda não enviadas — gravá-lo por cima
+// "desfaria" a baixa. Por isso cada saldo recebido é gravado como  saldo_do_servidor − vendas pendentes do aparelho
+// que o servidor ainda não tem. "Ainda não tem" é decidido PELO SERVIDOR, no mesmo instante em que ele leu os saldos
+// (`vendas_no_servidor`), não pelo estado da fila do aparelho (que pode mudar no meio do caminho).
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Vendas que serão enviadas sozinhas e que o servidor pode ainda não ter. (em_revisao/rejeitada: o servidor não as gravou nem reserva estoque para elas.) */
+const NAO_CONFIRMADAS = new Set(["pendente", "sincronizando", "erro"]);
+const TENTATIVAS_CORRIDA = 4;
+
+async function vendasNaoConfirmadas(): Promise<string[]> {
+  const itens = await getOfflineDB().fila_sincronizacao.where("tipo").equals("venda").toArray();
+  return itens.filter((i) => NAO_CONFIRMADAS.has(i.status)).map((i) => i.id);
+}
+
+function itensDaVenda(payload: string): { produto_id: string; quantidade: number }[] {
+  try {
+    const itens = (JSON.parse(payload) as { itens?: { produto_id: string; quantidade: number }[] }).itens;
+    return Array.isArray(itens) ? itens : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Grava uma página de estoque já reconciliada, NA MESMA transação do progresso. Devolve false (sem gravar nada)
+ * se apareceu uma venda no aparelho depois que o pedido saiu: o servidor não pode ter considerado essa venda
+ * (nem sabemos se ele a recebeu antes de ler), então a página é pedida de novo.
+ */
+async function aplicarPaginaEstoque(
+  pagina: PaginaCatalogo,
+  candidatas: string[],
+  inicioPedidoIso: string,
+  trava: Trava,
+  progresso: Progresso
+): Promise<boolean> {
+  const db = getOfflineDB();
+  const noServidor = new Set(pagina.vendas_no_servidor ?? []);
+  const conhecidas = new Set(candidatas);
+
+  return db.transaction("rw", [db.estoque_local, db.fila_sincronizacao, db.configuracoes_local], async () => {
+    await trava.verificarERenovar();
+
+    const fila = await db.fila_sincronizacao.where("tipo").equals("venda").toArray();
+    const corrida = fila.some((i) => !conhecidas.has(i.id) && (NAO_CONFIRMADAS.has(i.status) || i.criado_em >= inicioPedidoIso));
+    if (corrida) return false;
+
+    const abater = new Map<string, number>();
+    for (const item of fila) {
+      if (!conhecidas.has(item.id) || noServidor.has(item.id)) continue;
+      if (item.status === "em_revisao" || item.status === "rejeitada") continue;
+      for (const i of itensDaVenda(item.payload)) abater.set(i.produto_id, (abater.get(i.produto_id) ?? 0) + Number(i.quantidade));
+    }
+
+    const agora = new Date().toISOString();
+    const linhas: EstoqueLocal[] = (pagina.itens as AlteracoesCatalogo["estoque"]).map((e) => ({
+      produto_id: e.produto_id,
+      quantidade_atual: Math.round((e.quantidade_atual - (abater.get(e.produto_id) ?? 0)) * 1000) / 1000,
+      estoque_minimo: e.estoque_minimo,
+      updated_at: agora,
+    }));
+    if (linhas.length) await db.estoque_local.bulkPut(linhas);
+    await db.configuracoes_local.put({ chave: CHAVE_PROGRESSO, valor: JSON.stringify(progresso) });
+    return true;
+  });
+}
+
+async function paginaDeEstoque(p: Progresso, apos: CursorPagina | null, trava: Trava): Promise<Progresso> {
+  for (let tentativa = 1; tentativa <= TENTATIVAS_CORRIDA; tentativa++) {
+    const inicio = new Date().toISOString();
+    const candidatas = await vendasNaoConfirmadas();
+    if (candidatas.length > MAX_VENDAS_LOCAIS) {
+      throw new Error("Há vendas demais aguardando envio para conciliar o estoque; elas serão enviadas e a sincronização tentará de novo.");
+    }
+    const pagina = await buscarPaginaCatalogoAction({
+      entidade: "estoque",
+      desde: p.desde,
+      ate: p.ate,
+      apos,
+      tamanho: TAMANHO_PAGINA_CATALOGO,
+      vendas_locais: candidatas.length ? candidatas : undefined,
+    });
+    conferirPagina(p, apos, pagina);
+    const proximo = avancar(p, "estoque", pagina);
+    if (await aplicarPaginaEstoque(pagina, candidatas, inicio, trava, proximo)) return proximo;
+  }
+  throw new Error("Vendas sendo registradas durante a sincronização do estoque; tentará de novo.");
+}
+
+function conferirPagina(p: Progresso, apos: CursorPagina | null, pagina: PaginaCatalogo) {
+  if (p.ate && pagina.ate !== p.ate) throw new Error("Resposta de sincronização inconsistente (janela alterada).");
+  if (pagina.proximo && apos && pagina.proximo.id === apos.id && pagina.proximo.t === apos.t) {
+    throw new Error("Sincronização sem progresso (cursor repetido); tentará de novo.");
+  }
+}
+
 /**
  * Uma rodada completa e RETOMÁVEL: lê cada entidade em páginas, grava cada página e o progresso numa única
- * transação local, e só no fim avança o cursor global. Se cair no meio (internet, aba fechada, erro numa página),
- * o progresso fica salvo e a próxima chamada continua da página seguinte, com a mesma janela.
+ * transação local (que também confere a licença da aba), e só no fim avança o cursor global.
  */
-async function executarRodada(): Promise<Contagens> {
+async function executarRodada(trava: Trava): Promise<Contagens> {
   let p = (await lerProgresso()) ?? (await novoProgresso());
 
   for (const entidade of ENTIDADES_CATALOGO) {
     while (!p.concluidas.includes(entidade)) {
       const apos = p.cursores[entidade] ?? null;
+
+      if (entidade === "estoque") {
+        p = await paginaDeEstoque(p, apos, trava);
+        continue;
+      }
+
       const pagina = await buscarPaginaCatalogoAction({
         entidade,
         desde: p.desde,
@@ -168,35 +295,26 @@ async function executarRodada(): Promise<Contagens> {
         apos,
         tamanho: TAMANHO_PAGINA_CATALOGO,
       });
-      if (p.ate && pagina.ate !== p.ate) throw new Error("Resposta de sincronização inconsistente (janela alterada).");
-      if (pagina.proximo && apos && pagina.proximo.id === apos.id && pagina.proximo.t === apos.t) {
-        throw new Error("Sincronização sem progresso (cursor repetido); tentará de novo.");
-      }
-
-      const proximo: Progresso = {
-        ...p,
-        ate: pagina.ate,
-        cursores: { ...p.cursores },
-        concluidas: [...p.concluidas],
-        contagens: { ...p.contagens, [entidade]: p.contagens[entidade] + pagina.itens.length },
-      };
-      if (pagina.proximo) proximo.cursores[entidade] = pagina.proximo;
-      else {
-        delete proximo.cursores[entidade];
-        proximo.concluidas.push(entidade);
-      }
+      conferirPagina(p, apos, pagina);
+      const proximo = avancar(p, entidade, pagina);
 
       await aplicarAlteracoesCatalogoLocal(paginaComoAlteracoes(entidade, pagina), async () => {
+        await trava.verificarERenovar();
         await getOfflineDB().configuracoes_local.put({ chave: CHAVE_PROGRESSO, valor: JSON.stringify(proximo) });
       });
       p = proximo;
     }
   }
 
-  // Tudo gravado: só agora o cursor global avança (para o instante-limite desta rodada) e o progresso some.
+  // Tudo gravado: só agora o cursor global avança e o progresso some — e nunca regride.
   const db = getOfflineDB();
   await db.transaction("rw", db.configuracoes_local, async () => {
-    await db.configuracoes_local.put({ chave: CHAVE_CARIMBO, valor: p.ate as string });
+    await trava.verificarERenovar();
+    const novoCursor = (p.marca ?? p.ate) as string;
+    const atual = (await db.configuracoes_local.get(CHAVE_CARIMBO))?.valor;
+    if (!atual || Number.isNaN(Date.parse(atual)) || Date.parse(novoCursor) >= Date.parse(atual)) {
+      await db.configuracoes_local.put({ chave: CHAVE_CARIMBO, valor: novoCursor });
+    }
     await db.configuracoes_local.put({ chave: CHAVE_VERSAO, valor: VERSAO_PROTOCOLO });
     await db.configuracoes_local.delete(CHAVE_PROGRESSO);
   });
@@ -206,24 +324,38 @@ async function executarRodada(): Promise<Contagens> {
 let filaLocal: Promise<unknown> = Promise.resolve();
 
 /**
- * Uma sincronização por vez: entre abas (Web Locks) e dentro da aba (fila). Quem chega durante uma rodada ESPERA e
- * depois roda a sua (curta, incremental) — não pula, não corre em paralelo, não grava cursor fora de ordem.
+ * Uma sincronização por vez, em três camadas:
+ *  1. fila dentro da aba (quem chega durante uma rodada espera e roda a sua, curta);
+ *  2. Web Locks entre abas, quando existe (também libera sozinho se a aba morrer);
+ *  3. licença no IndexedDB com CERCA nas gravações (ver trava-sincronizacao.service.ts): vale em qualquer
+ *     navegador, inclusive páginas HTTP da rede local sem Web Locks.
  */
-function emExclusao<T>(fn: () => Promise<T>): Promise<T> {
-  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
-  if (locks?.request) return locks.request("sincronizacao-catalogo", fn) as Promise<T>;
-  const proxima = filaLocal.then(fn, fn);
+function emExclusao<T>(fn: (trava: Trava) => Promise<T>): Promise<T> {
+  const rodar = async (): Promise<T> => {
+    const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+    const comTrava = async (forcar: boolean) => {
+      const trava = await adquirirTrava({ forcar });
+      try {
+        return await fn(trava);
+      } finally {
+        await trava.liberar();
+      }
+    };
+    if (locks?.request) return locks.request("sincronizacao-catalogo", () => comTrava(true)) as Promise<T>;
+    return comTrava(false);
+  };
+  const proxima = filaLocal.then(rodar, rodar);
   filaLocal = proxima.catch(() => undefined);
   return proxima;
 }
 
 export async function sincronizarCatalogo(): Promise<ResultadoSincronizacaoCatalogo> {
-  return emExclusao(async () => {
+  return emExclusao(async (trava) => {
     const inicioMs = Date.now();
     await registrarEventoSincronizacao("inicio");
 
     try {
-      const contagem = await executarRodada();
+      const contagem = await executarRodada(trava);
       const total = contagem.produtos + contagem.categorias + contagem.estoque + contagem.funcionarios + contagem.clientes;
 
       // Canal separado: verificadores de PIN offline (só cargos que apenas vendem).

@@ -34,11 +34,12 @@ export const TAMANHO_PAGINA_CATALOGO = 500;
 export const TAMANHO_MAXIMO_PAGINA_CATALOGO = 1000;
 
 /**
- * Margem de segurança ao retomar de um cursor: uma transação que começou antes do instante-limite e só gravou depois
- * tem `updated_at`/`created_at` ANTERIOR ao cursor mas ainda não era visível na rodada anterior. Reler os últimos
- * minutos é barato e inofensivo (as gravações locais são idempotentes: chave primária + bulkPut).
+ * Margem ao retomar de um cursor, SOMENTE para diferença de relógio entre o app e o banco (o `updated_at` de um
+ * UPDATE é carimbado pelo app; o de um INSERT, pelo banco). NÃO é a proteção contra transações demoradas: essa é o
+ * horizonte do servidor (`marca`, abaixo), que não depende de duração nenhuma. Objeto mutável só para os testes
+ * poderem encurtar a margem.
  */
-export const SOBREPOSICAO_MS = 5 * 60 * 1000;
+export const AJUSTES_SINCRONIZACAO = { sobreposicaoMs: 5 * 60 * 1000 };
 
 export interface ItensPorEntidade {
   categorias: Categoria[];
@@ -57,11 +58,25 @@ export interface EntradaPaginaCatalogo<E extends EntidadeCatalogo = EntidadeCata
   /** Último item já recebido; null = começar do início. */
   apos: CursorPagina | null;
   tamanho?: number;
+  /**
+   * Só para `estoque`: ids das vendas do aparelho que o servidor ainda pode não ter (pendentes de envio). O servidor
+   * responde quais delas já estão gravadas NO MESMO instante em que leu os saldos (`vendas_no_servidor`), para o
+   * aparelho descontar só as que o saldo recebido ainda não inclui.
+   */
+  vendas_locais?: string[];
 }
 
 export interface PaginaCatalogo<E extends EntidadeCatalogo = EntidadeCatalogo> {
   /** Instante-limite desta rodada (igual ao enviado, ou o escolhido pelo servidor). */
   ate: string;
+  /**
+   * Só na primeira página da rodada: o cursor que o aparelho deve gravar ao concluir. É `ate`, recuado até o início da
+   * transação mais antiga ainda aberta no banco naquele instante — nenhuma transação aberta pode confirmar depois com
+   * data anterior ao cursor, por mais que demore.
+   */
+  marca?: string;
+  /** Só em `estoque` com `vendas_locais`: subconjunto já gravado no servidor no mesmo instante da leitura dos saldos. */
+  vendas_no_servidor?: string[];
   itens: ItensPorEntidade[E];
   /** Cursor para a próxima página; null = entidade concluída. */
   proximo: CursorPagina | null;
